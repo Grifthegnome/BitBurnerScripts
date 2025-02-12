@@ -21,7 +21,7 @@ export function autocomplete(data, _) {
 export async function main(ns) 
 {
     const options = ns.flags(argsSchema);
-    const baseUrl = `https://raw.githubusercontent.com/${options.github}/${options.repository}/${options.branch}/`;
+    const baseUrl = `https://raw.githubusercontent.com/${options.github}/${options.repository}/refs/heads/${options.branch}/`;
     const filesToDownload = options['new-file'].concat(options.download.length > 0 ? options.download : ns.ls('home')
         .filter(name => !name.endsWith(".exe") && !name.endsWith(".msg") && !name.endsWith(".lit")));
     
