@@ -171,7 +171,9 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
         const threadedGrowCallCount = Math.max( 1, growProfile.growCallCount - availableThreads )
         const totalGrowingTime      = growingTime * threadedGrowCallCount
 
-        const totalWeakenCalls        = await CalculateTotalWeakenCalls( ns, connectionName, growProfile.growCallCount, growProfile.growSecurityDeltaPercentage )
+        const growthToWeakenTimeRatio = growingTime/weakeningTime
+
+        const totalWeakenCalls        = await CalculateTotalWeakenCalls( ns, connectionName, growProfile.growCallCount, growProfile.growSecurityDeltaPercentage, growthToWeakenTimeRatio )
         const postWeakenThreadCount   = Math.max( 1, postGrowThreadCount - totalWeakenCalls)
         const threadedWeakenCallCount = Math.max( 1, totalWeakenCalls - postGrowThreadCount)
         const totalWeakeningTime      = weakeningTime * threadedWeakenCallCount
@@ -193,6 +195,8 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
 
         //THIS IS MOST LIKELY WRONG AND WE SHOULD RE-MATH IT.
         const totalThreadCount = threadsToHack + growProfile.growCallCount + totalWeakenCalls
+
+        ns.tprint( "Thread Estimation for " + connectionName + ": " + totalThreadCount )
 
         if ( serverOverdraw > 0 )
         {
@@ -307,7 +311,11 @@ async function CalculateGrowProfile( ns, targetServer )
   if ( growPercentage <= 0 )
     return new GrowCallProfileData( reqGrowCount, growSecPercentage )
 
-  let postGrowMoney = curMoney
+  //Grow from current account position.
+  //let postGrowMoney = curMoney
+
+  //Grow from empty account (Cannot be zero or infinite loop will result).
+  let postGrowMoney = 1
   
   while( postGrowMoney < maxMoney )
   {
@@ -318,10 +326,11 @@ async function CalculateGrowProfile( ns, targetServer )
   return new GrowCallProfileData( reqGrowCount, growSecPercentage )
 }
 
-async function CalculateTotalWeakenCalls( ns, targetServer, growCallCount, growSecurityDeltaPercentage )
+async function CalculateTotalWeakenCalls( ns, targetServer, growCallCount, growSecurityDeltaPercentage, growthToWeakenTimeRatio )
 {
   let preWeakenSec  = ns.getServerSecurityLevel( targetServer )
   const minSec      = ns.getServerMinSecurityLevel( targetServer )
+  const maxSec      = ns.getServerBaseSecurityLevel( targetServer )
 
   //TO DO: if preWeakenSec == minSec there is no point in profiling this.
 
@@ -351,15 +360,32 @@ async function CalculateTotalWeakenCalls( ns, targetServer, growCallCount, growS
 
   //TO DO: This assumes all the growing is done before all the weakening, 
   //in reality, they run in parallell, is there a way to mix them to get a more accurate account?
+  
+  let reqWeakenCount = 0
+  let parallellWeakenCalls = 0
+
   if ( growSecurityDeltaPercentage > 0 )
   {
     for ( let i = 0; i < growCallCount; i++ )
     {
       postGrowSec += postGrowSec * growSecurityDeltaPercentage
+
+      //Don't go above max security level.
+      postGrowSec = Math.min( maxSec, postGrowSec )
+      postGrowSec = Math.max( minSec, postGrowSec )
+
+      if ( postGrowSec > minSec )
+        parallellWeakenCalls += growthToWeakenTimeRatio
+
+      while ( parallellWeakenCalls >= 1 )
+      {
+        reqWeakenCount++
+        postGrowSec -= postGrowSec * weakenDeltaPercentage
+        parallellWeakenCalls -= 1
+      }
     }
   }
 
-  let reqWeakenCount = 0
   while ( postGrowSec > minSec )
   {
     reqWeakenCount++
