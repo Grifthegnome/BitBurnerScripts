@@ -353,7 +353,7 @@ export function BruteForceServer( ns, serverName )
     ns.httpworm( serverName )
 
   if ( ns.fileExists( "SQLInject.exe", "home" ) )
-    ns.sqlInject( serverName )
+    ns.sqlinject( serverName )
   
 }
 
