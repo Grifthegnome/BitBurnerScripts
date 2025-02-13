@@ -383,12 +383,17 @@ export function FindAllFilesWithExtensionOnServer( ns, serverName, fileExtension
       ns.tprint( file )
     }
   }
+
+  return filteredFiles
+
 }
 
 export function SearchNetworkForFilesWithExtension( ns, hostServer, parentServer, fileExtension, copyToHome )
 {  
   //This should be called with "home" as the starting server by the caller.
   const connections = ns.scan( hostServer )
+
+  let matchingFiles = Array()
 
   for ( let i = 0; i < connections.length; i++ )
   {
@@ -397,11 +402,21 @@ export function SearchNetworkForFilesWithExtension( ns, hostServer, parentServer
     if ( currentConnection == parentServer )
       continue
 
-    FindAllFilesWithExtensionOnServer( ns, currentConnection, fileExtension, copyToHome )
+    const newMatches = FindAllFilesWithExtensionOnServer( ns, currentConnection, fileExtension, copyToHome )
+
+    if ( newMatches.length > 0 )
+      matchingFiles = matchingFiles.concat( newMatches )
     
     //Search processes in sub-networks.
-    SearchNetworkForFilesWithExtension( ns, currentConnection, hostServer, fileExtension, copyToHome )
+    const subNetMatches = SearchNetworkForFilesWithExtension( ns, currentConnection, hostServer, fileExtension, copyToHome )
+  
+    if ( subNetMatches.length > 0 )
+      matchingFiles = matchingFiles.concat( subNetMatches )
+  
   }
+
+  return matchingFiles
+  
 }
 
 export function FindFirstServerWithFile( ns, hostServer, parentServer, fileName )
