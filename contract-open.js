@@ -11,7 +11,7 @@ export async function main(ns)
   if ( serverWithFile != "" )
   {
     const description = ns.codingcontract.getDescription( fileName, serverWithFile )
-    ns.tprint( description )
+    ns.tprint( "\n\n" + description )
   }
   else
   {
