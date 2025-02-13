@@ -1,10 +1,14 @@
 /** @param {NS} ns */
-export async function main(ns) {
-
-  //Solve for EncryptionII 
-
+export async function main(ns) 
+{
   const plainText = ns.args[0]
   const keyword   = ns.args[1]
+
+  SolveEncryptionII( plainText, keyword )
+}
+  //Solve for EncryptionII 
+export function SolveEncryptionII(ns, plainText, keyword )
+{
 
   let keywordLoop = ""
 
@@ -43,8 +47,6 @@ export async function main(ns) {
   const alphabetRow = [ "A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"]
 
   let cyperString = ""
-
-  debugger
 
   for ( let index = 0; index < keywordLoopIndices.length; index++ )
   {
