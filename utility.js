@@ -399,7 +399,34 @@ export function SearchNetworkForFilesWithExtension( ns, hostServer, parentServer
 
     FindAllFilesWithExtensionOnServer( ns, currentConnection, fileExtension, copyToHome )
     
-    //Kill processes in sub-networks.
+    //Search processes in sub-networks.
     SearchNetworkForFilesWithExtension( ns, currentConnection, hostServer, fileExtension, copyToHome )
   }
+}
+
+export function FindFirstServerWithFile( ns, hostServer, parentServer, fileName )
+{
+  //This should be called with "home" as the starting server by the caller.
+  const connections = ns.scan( hostServer )
+
+  for ( let i = 0; i < connections.length; i++ )
+  {
+    const currentConnection = connections[ i ]
+
+    if ( currentConnection == parentServer )
+      continue
+
+    if ( ns.fileExists( fileName, currentConnection ) )
+      return currentConnection
+    
+    //Search in sub-networks
+    const subSearchResult = FindFirstServerWithFile( ns, currentConnection, hostServer, fileName )
+
+    if ( subSearchResult != "" )
+      return subSearchResult
+
+  }
+
+  return ""
+
 }
