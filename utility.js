@@ -1,9 +1,3 @@
-
-function ServerLedgerData(  )
-{
-
-}
-
 export function AvailableServerData( name, availableThreads )
 {
   this.name             = name
@@ -253,8 +247,6 @@ export function KillAllNetworkProcesses( ns, hostServer, parentServer )
   //This should be called with "home" as the starting server by the caller.
   const connections = ns.scan( hostServer )
 
-  let availableServerList = Array()
-
   for ( let i = 0; i < connections.length; i++ )
   {
     const currentConnection = connections[ i ]
@@ -269,9 +261,6 @@ export function KillAllNetworkProcesses( ns, hostServer, parentServer )
     KillAllNetworkProcesses( ns, currentConnection, hostServer )
     
   }
-
-  return availableServerList
-
 }
 
 export function GetAvailableServersForScript( ns, hostServer, parentServer, scriptName )
@@ -359,4 +348,42 @@ export function BruteForceServer( ns, serverName )
   if ( ns.fileExists( "SQLInject.exe", "home" ) )
     ns.sqlInject( serverName )
   
+}
+
+export function FindAllFilesWithExtensionOnServer( ns, serverName, fileExtension )
+{
+  const files = ns.ls( serverName )
+  const filteredFiles = files.filter( file => file.endsWith( fileExtension ) )
+
+  if ( filteredFiles.length > 0 )
+  {
+    ns.tprint( "\n" )
+    ns.tprint( filteredFiles.length + " files found @ " + serverName )
+  }
+    
+
+  for ( let i = 0; i < filteredFiles.length; i++ )
+  {
+    let file = filteredFiles[i]
+    ns.tprint( file )
+  }
+}
+
+export function SearchNetworkForFilesWithExtension( ns, hostServer, parentServer, fileExtension )
+{  
+  //This should be called with "home" as the starting server by the caller.
+  const connections = ns.scan( hostServer )
+
+  for ( let i = 0; i < connections.length; i++ )
+  {
+    const currentConnection = connections[ i ]
+
+    if ( currentConnection == parentServer )
+      continue
+
+    FindAllFilesWithExtensionOnServer( ns, currentConnection, fileExtension )
+    
+    //Kill processes in sub-networks.
+    SearchNetworkForFilesWithExtension( ns, currentConnection, hostServer, fileExtension )
+  }
 }
