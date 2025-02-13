@@ -380,7 +380,18 @@ export function FindAllFilesWithExtensionOnServer( ns, serverName, fileExtension
     }
     else
     {
-      ns.tprint( file )
+
+      switch( fileExtension )
+      {
+        case ".cct":
+          const type = ns.codingcontract.getContractType( file, serverName )
+          ns.tprint( file + " " + type )
+        break
+
+        default:
+          ns.tprint( file )
+        break
+      }
     }
   }
 
