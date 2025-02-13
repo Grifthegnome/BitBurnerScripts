@@ -5,6 +5,6 @@ export async function main(ns) {
 
   const fileExtension = ns.args[0]
 
-  SearchNetworkForFilesWithExtension( ns, "home", "home", fileExtension )
+  SearchNetworkForFilesWithExtension( ns, "home", "home", fileExtension, false )
 
 }

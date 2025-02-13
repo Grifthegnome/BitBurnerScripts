@@ -13,7 +13,8 @@ export function ScriptPauseData( hostServerName, scriptName, threadCount, script
 }
 
 /** @param {NS} ns */
-export async function main(ns) {
+export async function main(ns) 
+{
 
 }
 
@@ -313,6 +314,9 @@ export function AllocateThreadsForScript( ns, threadCount, scriptName, scriptArg
 
     if ( availableServer.availableThreads > threadCount )
     {
+      if ( !ns.fileExists( scriptName, availableServer.name ) )
+        ns.scp( scriptName, availableServer.name )
+
       ns.tprint( "Server " + availableServer.name + ": Starting " + threadCount + " instances of " + scriptName + " with args " + scriptArgs )
       ns.exec( scriptName, availableServer.name, threadCount, ...scriptArgs )
 
@@ -321,6 +325,9 @@ export function AllocateThreadsForScript( ns, threadCount, scriptName, scriptArg
     }
     else
     {
+      if ( !ns.fileExists( scriptName, availableServer.name ) )
+        ns.scp( scriptName, availableServer.name )
+      
       ns.tprint( "Server " + availableServer.name + ": Starting " + availableServer.availableThreads + " instances of " + scriptName + " with args " + scriptArgs )
       ns.exec( scriptName, availableServer.name, availableServer.availableThreads, ...scriptArgs )
 
@@ -350,7 +357,7 @@ export function BruteForceServer( ns, serverName )
   
 }
 
-export function FindAllFilesWithExtensionOnServer( ns, serverName, fileExtension )
+export function FindAllFilesWithExtensionOnServer( ns, serverName, fileExtension, copyToHome )
 {
   const files = ns.ls( serverName )
   const filteredFiles = files.filter( file => file.endsWith( fileExtension ) )
@@ -365,11 +372,20 @@ export function FindAllFilesWithExtensionOnServer( ns, serverName, fileExtension
   for ( let i = 0; i < filteredFiles.length; i++ )
   {
     let file = filteredFiles[i]
-    ns.tprint( file )
+
+    if ( copyToHome )
+    {
+      ns.scp( file, "home", serverName )
+      ns.tprint( file + " copied to home" )
+    }
+    else
+    {
+      ns.tprint( file )
+    }
   }
 }
 
-export function SearchNetworkForFilesWithExtension( ns, hostServer, parentServer, fileExtension )
+export function SearchNetworkForFilesWithExtension( ns, hostServer, parentServer, fileExtension, copyToHome )
 {  
   //This should be called with "home" as the starting server by the caller.
   const connections = ns.scan( hostServer )
@@ -381,9 +397,9 @@ export function SearchNetworkForFilesWithExtension( ns, hostServer, parentServer
     if ( currentConnection == parentServer )
       continue
 
-    FindAllFilesWithExtensionOnServer( ns, currentConnection, fileExtension )
+    FindAllFilesWithExtensionOnServer( ns, currentConnection, fileExtension, copyToHome )
     
     //Kill processes in sub-networks.
-    SearchNetworkForFilesWithExtension( ns, currentConnection, hostServer, fileExtension )
+    SearchNetworkForFilesWithExtension( ns, currentConnection, hostServer, fileExtension, copyToHome )
   }
 }
