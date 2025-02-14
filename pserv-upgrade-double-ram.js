@@ -3,10 +3,8 @@ import { UnpauseScriptsOnServer } from "utility.js"
 import { PauseScriptsOnServer } from "utility.js"
 
 /** @param {NS} ns */
-export async function main(ns) {
-    // How much RAM each purchased server will have.
-    const ram = ns.args[0];
-
+export async function main(ns) 
+{
     // Iterator we'll use for our loop
     let purchasedServers = ns.getPurchasedServers();
 
@@ -14,20 +12,14 @@ export async function main(ns) {
 
     while ( i < purchasedServers.length )
     {
-
       let server = purchasedServers[i]
+
       const serverInfo = ns.getServer( server )
 
-      if ( ram <= serverInfo.maxRam )
-      {
-        //Move to next server.
-        i++
-        ns.tprint( "Cannot upgrade " + server + " to " + ram + "GB Ram, it already has " + serverInfo.maxRam + "GB." )
-        continue
-      }
+      //Double onboard ram
+      const ramUpgrade = serverInfo.maxRam * 2
 
-
-      if ( ns.getServerMoneyAvailable("home") > ns.getPurchasedServerCost(ram) ) 
+      if ( ns.getServerMoneyAvailable("home") > ns.getPurchasedServerCost(ramUpgrade) ) 
       {
         
 
@@ -35,11 +27,11 @@ export async function main(ns) {
 
         ns.deleteServer( server )
 
-        const newServer = ns.purchaseServer( server, ram )
+        const newServer = ns.purchaseServer( server, ramUpgrade )
 
         if ( newServer != "" )
         {
-          ns.tprint( "Upgraded " + server + " to " + ram + "GB Ram." )
+          ns.tprint( "Upgraded " + server + " to " + ramUpgrade + "GB Ram." )
 
           //We need to copy the script to the new server before we try to unpause.
           for ( let j = 0; j < pausedScripts.length; j++ )
@@ -62,5 +54,5 @@ export async function main(ns) {
       await ns.sleep(125);
     }
 
-    ns.tprint( "All Servers Upgraded to " + ram + "GB Ram. Ending Script." )
+    ns.tprint( "All Servers Upgraded. Ending Script." )
 }
