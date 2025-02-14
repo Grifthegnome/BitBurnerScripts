@@ -1,7 +1,7 @@
 import { SearchNetworkForFilesWithExtension } from "utility.js"
 import { FindFirstServerWithFile } from "utility.js"
 
-import { SolveEncryptionII } from "EncryptionII-Solver.js"
+import { SolveEncryptionII } from "solver-encryptionII.js"
 
 /** @param {NS} ns */
 export async function main(ns) {
