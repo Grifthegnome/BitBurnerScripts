@@ -38,18 +38,79 @@ function ScanNetLayer( ns, hostServer, parentServer, searchDepth, priorString )
     if ( currentConnection == parentServer )
       continue
 
+    const serverInfo = ns.getServer( currentConnection )
+
+    //serverInfo.organizationName
+    //serverInfo.hasRootAccess
+    //serverInfo.backdoorInstalled
+    //serverInfo.ip
+
     const serverPrint = depthString + currentConnection
+    
     ns.tprint( serverPrint )
     
-    //Scan sub-networks.
-    if ( i == connections.length - 1 )
+    if ( ns.scan( currentConnection ).length > 1 )
     {
-      ScanNetLayer( ns, currentConnection, hostServer, searchDepth + 1, lastPassAlongString )  
+
+      const hostScan = ns.scan( hostServer )
+
+      //Server Listing: Is Last For Parent, Has Children
+      if ( hostScan[ hostScan.length - 1 ] == currentConnection )
+      {
+        const serverDetail = lastPassAlongString +
+        "|    Org: " + serverInfo.organizationName +
+        " @" + serverInfo.ip +
+        " | Root: " + serverInfo.hasAdminRights +
+        " | Backdoor: " + serverInfo.backdoorInstalled
+
+        ns.tprint( serverDetail )
+      }
+      //Server Listing: Not Last For Parent, Has Children
+      else
+      {
+        const serverDetail = passAlongString +
+        "|    Org: " + serverInfo.organizationName +
+        " @" + serverInfo.ip +
+        " | Root: " + serverInfo.hasAdminRights +
+        " | Backdoor: " + serverInfo.backdoorInstalled
+
+        ns.tprint( serverDetail )
+      }
+            
     }
     else
     {
-      ScanNetLayer( ns, currentConnection, hostServer, searchDepth + 1, passAlongString )  
+
+      //Server Listing: No Children, Last For Parent
+      if ( i == connections.length - 1 )
+      {
+        const serverDetail = lastPassAlongString +
+        "     Org: " + serverInfo.organizationName +
+        " @" + serverInfo.ip +
+        " | Root: " + serverInfo.hasAdminRights +
+        " | Backdoor: " + serverInfo.backdoorInstalled
+
+        ns.tprint( serverDetail )
+      }
+
+      //Server Listing: No Children, Not Last
+      else
+      {
+        const serverDetail = passAlongString +
+        "     Org: " + serverInfo.organizationName +
+        " @" + serverInfo.ip +
+        " | Root: " + serverInfo.hasAdminRights +
+        " | Backdoor: " + serverInfo.backdoorInstalled
+
+        ns.tprint( serverDetail )
+      }      
     }
+
+    //Scan sub-networks.
+    if ( i == connections.length - 1 )
+      ScanNetLayer( ns, currentConnection, hostServer, searchDepth + 1, lastPassAlongString )  
+    else
+      ScanNetLayer( ns, currentConnection, hostServer, searchDepth + 1, passAlongString )  
     
   }
 }
