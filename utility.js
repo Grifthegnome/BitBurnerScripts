@@ -456,3 +456,43 @@ export function FindFirstServerWithFile( ns, hostServer, parentServer, fileName 
   return ""
 
 }
+
+export function ArraysAreEqual(array1, array2) 
+{
+    // Check if the lengths are equal
+    if (array1.length !== array2.length) {
+        return false;
+    }
+
+    // Sort both arrays
+    array1 = array1.slice().sort()
+    array2 = array2.slice().sort()
+
+    // Compare each element
+    for (let i = 0; i < array1.length; i++) 
+    {
+        if (array1[i] !== array2[i]) 
+            return false;
+    }
+
+    return true
+}
+
+export function ArraySwapElements(array, index1, index2) 
+{
+    // Check if indices are within the valid range
+    if (index1 < 0 || index1 >= array.length || index2 < 0 || index2 >= array.length) 
+    {
+        console.error("Invalid indices")
+        return
+    }
+
+    let returnArray = array.slice()
+
+    // Perform the swap
+    const temp = returnArray[index1];
+    returnArray[index1] = returnArray[index2];
+    returnArray[index2] = temp
+
+    return returnArray
+}
