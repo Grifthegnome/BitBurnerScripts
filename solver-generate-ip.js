@@ -19,11 +19,11 @@ export async function main(ns) {
 
   const ipKey = ns.args[0]
 
-  const result = GenerateIPAdressesFromKey( ipKey )
+  const result = GenerateIPAdressesFromKey( ns, ipKey )
 
 }
 
-export function GenerateIPAdressesFromKey( ipKey )
+export function GenerateIPAdressesFromKey( ns, ipKey )
 {
   /*
   What we know:
@@ -67,6 +67,11 @@ export function GenerateIPAdressesFromKey( ipKey )
 
   if ( typeof ipKey != String )
     ipKey = ipKey.toString()
+
+
+  if ( ipKey.length < maxIPSegments )
+    return []
+
 
   //Get IP Segment Divisor
   let divisor = 3
@@ -381,36 +386,59 @@ export function GenerateIPAdressesFromKey( ipKey )
     }
   }
 
-//Clean up ordering tables.
+  //TO DO: Clean up ordering tables to remove duplicates.
 
-  /*
-  Test cases:
-  -What happens when the ip key is length 5?
-  -What happens when the ip key is less than 4 and can't generate a valid IP?
-  -What happens if the divisable segments is clean, but less than 4?
-  */
+  //Build Ip Segments
+  let validIPs = Array()
+  for ( let i = 0; i < orderingTables.length; i++ )
+  {
+    let currentIP = Array()
+    const currentTable = orderingTables[i]
 
-  //Build an ordering table? I.E.
-  // 2,3,3,3
-  // 3,2,3,3
-  // 3,3,2,3
-  // 3,3,3,2
+    let sliceStart = 0
+    for ( let currentSegmentIndex = 0; currentSegmentIndex < currentTable.length; currentSegmentIndex++ )
+    {
+      const segmentLength = currentTable[currentSegmentIndex]
+      const ipSegment = ipKey.slice(sliceStart,sliceStart + segmentLength)
+      sliceStart += segmentLength
 
-  //Build IPs
+      //Values starting with 0 are not valid in an octet
+      if ( ipSegment.startsWith( "0" ) && ipSegment.length > 1 )
+        break
 
-  //Invalidate any IP's with starter 0 placements.
+      //Values above 255 are not valid in an octet
+      if ( parseInt( ipSegment ) > 255 )
+        break
 
-  //return final list?
+      if ( currentSegmentIndex < currentTable.length - 1 )
+        currentIP += ( ipSegment + "." )
+      else
+        currentIP += ipSegment
+    }
 
+    if ( currentIP.length == ipKey.length + 3 )
+    {
+      let isNewIp = true
+      for ( let existingIPIndex = 0; existingIPIndex < validIPs.length; existingIPIndex++ )
+      {
+        
+        if ( currentIP == validIPs[existingIPIndex] )
+        {
+          isNewIp = false
+          break
+        }
+      }
 
-  debugger
+      if ( isNewIp )
+      {
+        validIPs.push( currentIP ) 
+      }
+    }
+  }
 
-  let validIps = Array()
+  ns.tprint( validIPs )
 
-  //Do Work Here.
-
-
-  return validIps
+  return validIPs
 
 
 }

@@ -2,6 +2,7 @@ import { SearchNetworkForFilesWithExtension } from "utility.js"
 import { FindFirstServerWithFile } from "utility.js"
 
 import { SolveEncryptionII } from "solver-encryptionII.js"
+import { GenerateIPAdressesFromKey } from "solver-generate-ip.js"
 
 /** @param {NS} ns */
 export async function main(ns) {
@@ -30,20 +31,36 @@ export async function main(ns) {
 function GetSolutionForContractType( ns, type, contract, contractHost )
 {
 
+  let data
+  let solution
+  let success
+
   switch ( type )
   {
     case "Encryption II: Vigenère Cipher":
 
-      const data = ns.codingcontract.getData( contract, contractHost)
-      const solution = SolveEncryptionII( ns, data[0], data[1] )
+      data = ns.codingcontract.getData( contract, contractHost)
+      solution = SolveEncryptionII( ns, data[0], data[1] )
 
-      const success = ns.codingcontract.attempt( solution, contract, contractHost )
+      success = ns.codingcontract.attempt( solution, contract, contractHost )
 
       if ( success )
         ns.tprint( "Solved contract: " + contract )
       else
-        ns.tprint( "Failed to solve contract: " + contract + " check Encryption II: Vigenère Cipher solution EncryptionII-Solver.js" )
+        ns.tprint( "Failed to solve contract: " + contract + " check Encryption II: Vigenère Cipher solution solver-encryptionII.js" )
 
+
+    break
+    case "Generate IP Addresses":
+      data = ns.codingcontract.getData( contract, contractHost)
+      solution = GenerateIPAdressesFromKey( ns, data )
+
+      success = ns.codingcontract.attempt( solution, contract, contractHost )
+
+      if ( success )
+        ns.tprint( "Solved contract: " + contract )
+      else
+        ns.tprint( "Failed to solve contract: " + contract + " check Generate IP Addresses solution solver-generate-ip.js" )
 
     break
   }
