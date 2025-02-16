@@ -79,6 +79,11 @@ export async function main(ns)
       let sortedServer = searchedServers[ i ]
       let scriptArgs = [ sortedServer.name ]
 
+      /*
+      To Do: We are calculating threads before the search. If any servers are unlocked, bought, or upgraded
+      during this time, they won't be used until the next full cycle. We should fix this.
+      */
+
       if ( sortedServer.requiredThreads > availableThreads )
         AllocateThreadsForScript( ns, availableThreads, farmingScript, scriptArgs )
       else

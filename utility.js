@@ -317,6 +317,8 @@ export function AllocateThreadsForScript( ns, threadCount, scriptName, scriptArg
       if ( !ns.fileExists( scriptName, availableServer.name ) )
         ns.scp( scriptName, availableServer.name )
 
+      debugger
+
       ns.tprint( "Server " + availableServer.name + ": Starting " + threadCount + " instances of " + scriptName + " with args " + scriptArgs )
       ns.exec( scriptName, availableServer.name, threadCount, ...scriptArgs )
 
@@ -328,12 +330,39 @@ export function AllocateThreadsForScript( ns, threadCount, scriptName, scriptArg
       if ( !ns.fileExists( scriptName, availableServer.name ) )
         ns.scp( scriptName, availableServer.name )
       
+      debugger
+
       ns.tprint( "Server " + availableServer.name + ": Starting " + availableServer.availableThreads + " instances of " + scriptName + " with args " + scriptArgs )
       ns.exec( scriptName, availableServer.name, availableServer.availableThreads, ...scriptArgs )
 
       threadCount -= availableServer.availableThreads
       availableServer.availableThreads = 0
     }
+  }
+}
+
+export function DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList )
+{
+  /*
+  This function should be provided an array of script names, a 2D array of script args, and an array
+  of thread counts. The indices in each array corrospond to each other, so all three arrays must have
+  matching lengths.
+
+  We prioritize running scripts from first to last index.
+  */
+
+  if ( scriptNameList.length != scriptArgsList.length && scriptNameList.length != threadCountList.length )
+    throw new Error( "scriptNameList, scriptArgsList, and threadCountList much have matching lengths." )
+
+  for ( let i = 0; i < scriptNameList.length; i++ )
+  {
+    const scriptName  = scriptNameList[ i ]
+    const scriptArgs  = scriptArgsList[ i ]
+    const threadCount = threadCountList[ i ] 
+
+    debugger
+
+    AllocateThreadsForScript( ns, threadCount, scriptName, scriptArgs )
   }
 }
 
