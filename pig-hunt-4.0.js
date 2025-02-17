@@ -180,6 +180,9 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
     const connectionName = connections[i]
     ns.print( "connection name: " + connectionName )
 
+    if ( connectionName == "CSEC")
+      debugger
+
     if ( connectionName == parentServer )
     {
       ns.tprint( "Found parent server of current server, skipping." )
@@ -219,9 +222,16 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
     ns.tprint( "\n" )
     ns.tprint( "Evaluating server: " + connectionName + ", ETA " + GetReadableDateDelta( growingTime + weakeningTime ) + ", please wait."  )
 
+    const moneyAvailable    = ns.getServerMoneyAvailable( connectionName )
+    const maxMoney          = ns.getServerMaxMoney( connectionName )
+
     if ( growingTime + weakeningTime > maxEvaluationTime )
     {
       ns.tprint( GetReadableDateDelta( growingTime + weakeningTime ) + " is longer than max evaluation time of " + GetReadableDateDelta( maxEvaluationTime ) + ", skipping " + connectionName )
+    }
+    else if ( maxMoney == 0 ) 
+    {
+        ns.tprint( "Server cannot hold money, skipping " + connectionName )
     }
     else
     {
@@ -230,16 +240,7 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
 
         //Get availble threads to see if it has changed mid-process.
         const availableThreads = GetTotalAvailableThreadsForScript( ns, "home", "home", farmingScript )
-
-        const moneyAvailable    = ns.getServerMoneyAvailable( connectionName )
-        const maxMoney          = ns.getServerMaxMoney( connectionName )
-
-        if ( maxMoney == 0 ) 
-        {
-          ns.tprint( "Server cannot hold money, skipping " + connectionName )
-          continue
-        }
-          
+         
         const hackPercentage    = ns.hackAnalyze( connectionName )
         const securityLevel     = ns.getServerSecurityLevel( connectionName )
         const secMinLevel       = ns.getServerMinSecurityLevel( connectionName )
@@ -294,6 +295,8 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
         ns.tprint( "No root access or hacking level too high skipping " + connectionName )
       }
     }
+
+    debugger
 
     let branchServerSearch = await ServerSearch( ns, connectionName, targetServer, maxEvaluationTime, farmingScript )
 
