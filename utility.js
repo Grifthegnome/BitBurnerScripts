@@ -118,9 +118,6 @@ export function PauseScriptsTargetingServerOnGivenServer( ns, hostName, targetSe
 
   for( let i = 0; i < runningScripts.length; i++ )
   {
-    if ( i > 0 )
-      debugger
-
     const script = runningScripts[i]
     const scriptArgs = script.args
     //Note: We are assuming that the appearance of the targetServer's name anywhere in a script's arguments means it is the target.
@@ -144,9 +141,6 @@ export async function UnpauseScriptsOnServer( ns, pausedScriptData )
 {
   for( let i = 0; i < pausedScriptData.length; i++ )
   {
-    if ( i > 0 )
-      debugger
-
     let pausedScript = pausedScriptData[ i ]
 
     ns.exec( pausedScript.scriptName, pausedScript.hostServerName, pausedScript.threadCount, ...pausedScript.scriptArgs )
@@ -305,6 +299,8 @@ export function AllocateThreadsForScript( ns, threadCount, scriptName, scriptArg
 {
   let availableServerList = GetAvailableServersForScript( ns, "home", "home", scriptName )
 
+  let threadsAllocated = 0
+
   for ( let i = 0; i < availableServerList.length; i++ )
   {
     if ( threadCount <= 0 )
@@ -317,10 +313,10 @@ export function AllocateThreadsForScript( ns, threadCount, scriptName, scriptArg
       if ( !ns.fileExists( scriptName, availableServer.name ) )
         ns.scp( scriptName, availableServer.name )
 
-      debugger
-
       ns.tprint( "Server " + availableServer.name + ": Starting " + threadCount + " instances of " + scriptName + " with args " + scriptArgs )
       ns.exec( scriptName, availableServer.name, threadCount, ...scriptArgs )
+
+      threadsAllocated += threadCount
 
       availableServer.availableThreads -= threadCount
       threadCount = 0
@@ -330,15 +326,18 @@ export function AllocateThreadsForScript( ns, threadCount, scriptName, scriptArg
       if ( !ns.fileExists( scriptName, availableServer.name ) )
         ns.scp( scriptName, availableServer.name )
       
-      debugger
-
       ns.tprint( "Server " + availableServer.name + ": Starting " + availableServer.availableThreads + " instances of " + scriptName + " with args " + scriptArgs )
       ns.exec( scriptName, availableServer.name, availableServer.availableThreads, ...scriptArgs )
+
+      threadsAllocated += availableServer.availableThreads
 
       threadCount -= availableServer.availableThreads
       availableServer.availableThreads = 0
     }
   }
+
+  return threadsAllocated
+
 }
 
 export function DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList )
@@ -354,16 +353,27 @@ export function DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, 
   if ( scriptNameList.length != scriptArgsList.length && scriptNameList.length != threadCountList.length )
     throw new Error( "scriptNameList, scriptArgsList, and threadCountList much have matching lengths." )
 
+  let totalThreadsAllocated = 0
+
   for ( let i = 0; i < scriptNameList.length; i++ )
   {
+
     const scriptName  = scriptNameList[ i ]
     const scriptArgs  = scriptArgsList[ i ]
     const threadCount = threadCountList[ i ] 
 
-    debugger
+    if ( threadCount == 0 )
+      continue
 
-    AllocateThreadsForScript( ns, threadCount, scriptName, scriptArgs )
+    const threadsAllocated = AllocateThreadsForScript( ns, threadCount, scriptName, scriptArgs )
+    
+    if ( threadsAllocated == 0 )
+      break
+
+    totalThreadsAllocated += threadsAllocated
   }
+
+  return totalThreadsAllocated
 }
 
 export function BruteForceServer( ns, serverName )

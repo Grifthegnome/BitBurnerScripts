@@ -31,5 +31,9 @@ export async function main(ns) {
             // Otherwise, hack it
             await ns.hack(target);
         }
+
+      //Add random wait variance so all threads aren't running at the exact same time.
+      await ns.sleep( 1000 * Math.random() )
+
     }
 }
