@@ -6,7 +6,7 @@ import { BruteForceServer } from "utility.js"
 export async function main(ns) 
 {
   
-  const hostName = ns.getHostname()
+  const hostName = "home"//ns.getHostname()
 
   ns.print( "hostName: " + hostName )
 
@@ -62,6 +62,19 @@ function SearchAndNukeServers( ns, hostServer, parentServer )
       }
     }
 
+    //Install our global helper scripts on the server.
+    if ( ns.hasRootAccess( connectionName ) )
+    {
+      //Add any scripts you want on all servers here.
+      ns.scp( "homerun.js", connectionName )
+      ns.scp( "R-NUKE.js", connectionName )
+      ns.scp( "net-scan.js", connectionName )
+      ns.scp( "net-backtrace.js", connectionName )
+      ns.scp( "contract-open.js", connectionName )
+      ns.scp( "contract-find.js", connectionName )
+      ns.scp( "utility.js", connectionName )
+      
+    }
     SearchAndNukeServers( ns, connectionName, hostServer )
   }
 }
