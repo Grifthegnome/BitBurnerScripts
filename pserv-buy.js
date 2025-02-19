@@ -4,12 +4,6 @@ import { GetThreadCountForScript } from "utility.js"
 export async function main(ns) {
     // How much RAM each purchased server will have. In this case, it'll
     const ram = ns.args[0];
-    const bootScript = ns.args[1]
-
-    //Isolate remaining Aruments
-    let scriptArgs = ns.args
-    scriptArgs.shift()
-    scriptArgs.shift()
 
     // Iterator we'll use for our loop
     let i = ns.getPurchasedServers().length;
@@ -25,12 +19,6 @@ export async function main(ns) {
             //  3. Run our hacking script on the newly-purchased server with 3 threads
             //  4. Increment our iterator to indicate that we've bought a new server
             let hostname = ns.purchaseServer("pserv-" + i, ram);
-            ns.scp(bootScript, hostname);
-
-            let threads = GetThreadCountForScript( ns, bootScript, hostname )
-
-            ns.exec(bootScript, hostname, threads, ...scriptArgs);
-
             ns.tprint( "Purchased " + hostname + " at " + ram + "GB Ram." )
 
             ++i;
