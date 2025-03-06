@@ -74,7 +74,7 @@ export async function main(ns)
       }
     }
 
-    if ( !purchasedUpgrade && !upgradesRemaining )
+    if ( !purchasedUpgrade && !upgradesRemaining && ns.hacknet.maxNumNodes() <= nodeCount )
     {
       ns.tprint( "Hack Net Nodes Fully Upgraded, Exiting Script." )
       return
