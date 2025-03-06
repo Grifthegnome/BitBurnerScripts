@@ -44,15 +44,32 @@ export async function main(ns)
   //TO DO: Because we will have three seperate scripts the thread estimations will be diffrent.
   //We many need to allocate by ram rather than threads.
   const hackScript      = "server-hack.js"
-  const cultivateScript = "server-cultivate.js"
+  //const cultivateScript = "server-cultivate.js"
+  const weakenScript    = "server-weaken.js"
+  const growScript      = "server-grow.js"
 
   const hackScriptRam       = ns.getScriptRam( hackScript )
-  const cultivateScriptRam  = ns.getScriptRam( cultivateScript )
+  //const cultivateScriptRam  = ns.getScriptRam( cultivateScript )
+  const weakenScriptRam     = ns.getScriptRam( weakenScript )
+  const growScriptRam       = ns.getScriptRam( growScript )
 
   //For now assign the farming script for the search to be the script with the highest ram cost.
   let farmingScript = hackScript
-  if ( cultivateScriptRam > hackScriptRam )
-    farmingScript = cultivateScript
+  let highestRamCost = hackScriptRam
+  //if ( cultivateScriptRam > hackScriptRam )
+  //  farmingScript = cultivateScript
+
+  if ( weakenScriptRam > highestRamCost )
+  {
+    farmingScript   = weakenScript
+    highestRamCost  = weakenScriptRam
+  }
+  
+  if ( growScriptRam > highestRamCost )
+  {
+    farmingScript   = growScript
+    highestRamCost  = growScriptRam
+  }
 
   let evaluationIncrement = ns.args[0]
 
@@ -108,17 +125,17 @@ export async function main(ns)
       if ( sortedServer.requiredTotalThreads == 0 )
         continue
 
-      const scriptNameList = [ cultivateScript, hackScript ]
-      const scriptArgsList = [ [sortedServer.name], [sortedServer.name] ]
+      const scriptNameList = [ weakenScript, growScript, hackScript ]
+      const scriptArgsList = [ [sortedServer.name], [sortedServer.name], [sortedServer.name] ]
 
     
       const clampedGrowThreads    = sortedServer.requiredGrowThreads
-      const clampodWeakenThreads = sortedServer.requiredWeakenThreads
+      const clampodWeakenThreads  = sortedServer.requiredWeakenThreads
       
-      const clampedCultivateThreads = clampodWeakenThreads + clampedGrowThreads
+      //const clampedCultivateThreads = clampodWeakenThreads + clampedGrowThreads
       const clampedHackThreads = sortedServer.requiredHackThreads
 
-      const threadCountList = [ clampedCultivateThreads, clampedHackThreads ]
+      const threadCountList = [ clampodWeakenThreads, clampedGrowThreads, clampedHackThreads ]
         
       const threadsAllocated = DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList )
         
@@ -339,10 +356,10 @@ function CalculateGrowthThreads( ns, targetServer )
 function CalculateWeakenThreads( ns, targetServer )
 {
   const minSec = ns.getServerMinSecurityLevel( targetServer )
-  //const curSec = ns.getServerSecurityLevel( targetServer )
-  const maxSec = ns.getServerBaseSecurityLevel( targetServer )
+  const curSec = ns.getServerSecurityLevel( targetServer )
+  //const maxSec = ns.getServerBaseSecurityLevel( targetServer )
 
-  const securityDelta = maxSec - minSec
+  const securityDelta = curSec - minSec
 
   const reqWeakenThreads = Math.ceil( securityDelta / ns.weakenAnalyze(1,1) )
 
