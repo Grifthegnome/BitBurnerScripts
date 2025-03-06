@@ -1,7 +1,7 @@
 /** @param {NS} ns */
 export async function main(ns) 
 {
-  let accountPercentage = 0.10
+  let accountPercentage = 0.01
 
   if ( ns.args.length > 0 )
     accountPercentage = ns.args[0]
