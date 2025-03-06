@@ -53,6 +53,10 @@ async function UpgradeServers( ns )
 
       const serverInfo = ns.getServer( server )
 
+      //If our current ram usage is less than 80%, we don't need to upgrade this server.
+      if ( serverInfo.ramUsed < serverInfo.maxRam * 0.8 )
+        continue
+
       //Double onboard ram
       const ramUpgrade = serverInfo.maxRam * 2
 
