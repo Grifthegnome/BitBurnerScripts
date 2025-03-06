@@ -46,7 +46,8 @@ export async function main(ns)
           break
         }          
       }
-      else if ( isFinite( ramUpgradeCost ) )
+      
+      if ( isFinite( ramUpgradeCost ) )
       {
 
         upgradesRemaining = true
@@ -58,7 +59,8 @@ export async function main(ns)
           break
         }
       }
-      else if ( isFinite( coreUpgradeCost ) )
+      
+      if ( isFinite( coreUpgradeCost ) )
       {
 
         upgradesRemaining = true
