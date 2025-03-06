@@ -250,8 +250,12 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
 
         const moneyPerHack = maxMoney * hackPercentage
 
-        //This is a dumb estimation that doesn't account for dimishing returns.
-        const threadsToHack = moneyPerHack > 0 ? Math.floor( maxMoney / moneyPerHack ) : 0
+        //This is a dumb estimation to hack 10% of account that doesn't account for dimishing returns.
+        let threadsToHack = moneyPerHack > 0 ? Math.floor( maxMoney * 0.10 / moneyPerHack ) : 0
+
+        //Dob't assign hacking threads if the server isn't ready to hack
+        if ( securityLevel > secMinLevel || moneyAvailable < maxMoney )
+          threadsToHack = 0
 
         //THIS IS MOST LIKELY WRONG AND WE SHOULD RE-MATH IT.
         const totalThreadCount = threadsToHack + requiredGrowThreads + requiredWeakenThreads
