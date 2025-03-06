@@ -96,7 +96,7 @@ export async function main(ns)
 
     let searchStartTime = new Date()
 
-    let searchedServers = await ServerSearch( ns, parentServer, parentServer, maxEvaluationTime, farmingScript )
+    let searchedServers = await ServerSearch( ns, parentServer, parentServer, maxEvaluationTime, farmingScript, weakenScript, growScript, hackScript )
 
     let searchEndTime = new Date()
 
@@ -140,20 +140,16 @@ export async function main(ns)
       const scriptNameList = [ weakenScript, growScript, hackScript ]
       const scriptArgsList = [ [sortedServer.name], [sortedServer.name], [sortedServer.name] ]
 
-      const currentActiveGrowThreads    = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", growScript, [sortedServer.name] )
-      const currentActiveWeakenThreads  = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", weakenScript, [sortedServer.name] )
-      const currentActiveHackThreads    = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", hackScript, [sortedServer.name] )
-
-      const clampedGrowThreads    = Math.max(0, Math.floor( sortedServer.requiredGrowThreads - currentActiveGrowThreads ) )
-      const clampodWeakenThreads  = Math.max(0, Math.floor( sortedServer.requiredWeakenThreads - currentActiveWeakenThreads ) )
-      const clampedHackThreads    = Math.max(0, Math.floor( sortedServer.requiredHackThreads - currentActiveHackThreads ) )
+      const clampedGrowThreads    = sortedServer.requiredGrowThreads
+      const clampodWeakenThreads  = sortedServer.requiredWeakenThreads
+      const clampedHackThreads    = sortedServer.requiredHackThreads
 
       const threadCountList = [ clampodWeakenThreads, clampedGrowThreads, clampedHackThreads ]
     
-      const threadsNeeded    = clampodWeakenThreads + clampedGrowThreads + clampedHackThreads
-      const threadsAllocated = DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList )
+      const totalThreadsNeeded  = clampodWeakenThreads + clampedGrowThreads + clampedHackThreads
+      const threadsAllocated    = DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList )
         
-      if ( threadsAllocated <= 0 && threadsNeeded > 0 )
+      if ( threadsAllocated <= 0 && totalThreadsNeeded > 0 )
         break
 
       const hackingTime       = ns.getHackTime( sortedServer.name )
@@ -198,7 +194,8 @@ export async function main(ns)
   
 }
 
-async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, farmingScript )
+async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, farmingScript, 
+weakenScript, growScript, hackScript )
 {
   const myHackingLevel = ns.getHackingLevel()
 
@@ -206,6 +203,9 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
   let searchedServers = Array()
 
   const myServers = ns.getPurchasedServers()
+
+  //Get availble threads.
+  const availableThreads = GetTotalAvailableThreadsForScript( ns, "home", "home", farmingScript )
 
   for( var i = 0; i < connections.length; i++ )
   {
@@ -279,20 +279,21 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
     else
     {
       if ( myHackingLevel >= serverHackingLevel && rootAccess )
-      {     
-
-        //Get availble threads to see if it has changed mid-process.
-        const availableThreads = GetTotalAvailableThreadsForScript( ns, "home", "home", farmingScript )
-         
+      {              
         const hackPercentage    = ns.hackAnalyze( connectionName )
         const securityLevel     = ns.getServerSecurityLevel( connectionName )
         const secMinLevel       = ns.getServerMinSecurityLevel( connectionName )
 
-        const requiredGrowThreads = CalculateGrowthThreads( ns, connectionName )
-        const requiredWeakenThreads = CalculateWeakenThreads( ns, connectionName )
+        const requiredGrowThreads   = CalculateGrowthThreads( ns, connectionName, growScript )
+        const requiredWeakenThreads = CalculateWeakenThreads( ns, connectionName, weakenScript )
 
-        const totalGrowingTime    = growingTime * requiredGrowThreads
-        const totalWeakeningTime  = weakeningTime * requiredWeakenThreads
+        const weakenTimeMult = Math.max( 1, requiredWeakenThreads - availableThreads )
+        const postWeakenThreadRemainder = Math.max( 0, availableThreads - requiredWeakenThreads )
+        const growTimeMult   = Math.max( 1, requiredGrowThreads - postWeakenThreadRemainder )
+
+        //Assuming we have enough threads, this would be done in parallel.
+        const totalWeakeningTime  = weakeningTime * weakenTimeMult
+        const totalGrowingTime    = growingTime * growTimeMult
 
         const timeToMoneyRatio = GetTimeForEarningRatio( hackingTime + totalGrowingTime + totalWeakeningTime, maxMoney * hackPercentage )
 
@@ -306,7 +307,18 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
 
         //Dob't assign hacking threads if the server isn't ready to hack
         if ( securityLevel > secMinLevel || moneyAvailable < maxMoney )
+        {
           threadsToHack = 0
+        }
+        else
+        {
+          if ( threadsToHack > 0 )
+          {
+            const currentActiveHackThreads = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", hackScript, [connectionName] )
+            threadsToHack = Math.max( 0, threadsToHack - currentActiveHackThreads )
+          }
+        }
+          
 
         //THIS IS MOST LIKELY WRONG AND WE SHOULD RE-MATH IT.
         const totalThreadCount = threadsToHack + requiredGrowThreads + requiredWeakenThreads
@@ -350,7 +362,7 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
       }
     }
 
-    let branchServerSearch = await ServerSearch( ns, connectionName, targetServer, maxEvaluationTime, farmingScript )
+    let branchServerSearch = await ServerSearch( ns, connectionName, targetServer, maxEvaluationTime, farmingScript, weakenScript, growScript, hackScript )
 
     if ( branchServerSearch.length > 0 )
       searchedServers = searchedServers.concat( branchServerSearch )
@@ -377,7 +389,7 @@ function GetTimeForEarningRatio( time, moneyEarned )
   return moneyEarned / time
 }
 
-function CalculateGrowthThreads( ns, targetServer )
+function CalculateGrowthThreads( ns, targetServer, growScript )
 {
   const availableMoney  = ns.getServerMoneyAvailable( targetServer )
   const maxMoney        = ns.getServerMaxMoney( targetServer )
@@ -390,12 +402,20 @@ function CalculateGrowthThreads( ns, targetServer )
     return 0  
 
   const growthThreads = Math.ceil( ns.growthAnalyze( targetServer, growthMultiplier ) )
-
+  
+  
+  if ( growthThreads > 0 )
+  {
+    const currentActiveGrowThreads = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", growScript, [targetServer] )
+    const reqGrowthThreads = Math.max( 0, growthThreads - currentActiveGrowThreads )  
+    return reqGrowthThreads
+  }
+      
   return growthThreads
 
 }
 
-function CalculateWeakenThreads( ns, targetServer )
+function CalculateWeakenThreads( ns, targetServer, weakenScript )
 {
   const minSec = ns.getServerMinSecurityLevel( targetServer )
   const curSec = ns.getServerSecurityLevel( targetServer )
@@ -403,7 +423,14 @@ function CalculateWeakenThreads( ns, targetServer )
 
   const securityDelta = curSec - minSec
 
-  const reqWeakenThreads = Math.ceil( securityDelta / ns.weakenAnalyze(1,1) )
+  const weakenThreads = Math.ceil( securityDelta / ns.weakenAnalyze(1,1) )
 
-  return reqWeakenThreads
+  if ( weakenThreads > 0 )
+  {
+    const currentActiveWeakenThreads  = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", weakenScript, [targetServer] )
+    const reqWeakenThreads = Math.max( 0, weakenThreads - currentActiveWeakenThreads)
+    return reqWeakenThreads
+  }
+
+  return weakenThreads
 }

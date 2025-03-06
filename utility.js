@@ -224,7 +224,7 @@ export function GetTotalAvailableThreadsForScript( ns, hostServer, parentServer,
 
     if ( ns.hasRootAccess( currentConnection ) )
     {
-      let availableThreads = GetMaxThreadCountForScript( ns, scriptName, currentConnection )
+      let availableThreads = GetThreadCountForScript( ns, scriptName, currentConnection )
       totalThreadCount += availableThreads
     }
       
