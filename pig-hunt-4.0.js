@@ -4,6 +4,7 @@
 
 import { GetReadableDateDelta } from "utility.js"
 import { GetTotalAvailableThreadsForScript } from "utility.js"
+import { GetTotalThreadsRunningScriptOnNetwork } from "utility.js"
 import { UnpauseScriptsOnServer } from "utility.js"
 import { PauseAllServersTargetingGivenServer } from "utility.js"
 import { DistributeScriptsToNetwork } from "utility.js"
@@ -139,18 +140,20 @@ export async function main(ns)
       const scriptNameList = [ weakenScript, growScript, hackScript ]
       const scriptArgsList = [ [sortedServer.name], [sortedServer.name], [sortedServer.name] ]
 
-    
-      const clampedGrowThreads    = sortedServer.requiredGrowThreads
-      const clampodWeakenThreads  = sortedServer.requiredWeakenThreads
-      
-      //const clampedCultivateThreads = clampodWeakenThreads + clampedGrowThreads
-      const clampedHackThreads = sortedServer.requiredHackThreads
+      const currentActiveGrowThreads    = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", growScript, [sortedServer.name] )
+      const currentActiveWeakenThreads  = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", weakenScript, [sortedServer.name] )
+      const currentActiveHackThreads    = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", hackScript, [sortedServer.name] )
+
+      const clampedGrowThreads    = Math.max(0, Math.floor( sortedServer.requiredGrowThreads - currentActiveGrowThreads ) )
+      const clampodWeakenThreads  = Math.max(0, Math.floor( sortedServer.requiredWeakenThreads - currentActiveWeakenThreads ) )
+      const clampedHackThreads    = Math.max(0, Math.floor( sortedServer.requiredHackThreads - currentActiveHackThreads ) )
 
       const threadCountList = [ clampodWeakenThreads, clampedGrowThreads, clampedHackThreads ]
-        
+    
+      const threadsNeeded    = clampodWeakenThreads + clampedGrowThreads + clampedHackThreads
       const threadsAllocated = DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList )
         
-      if ( threadsAllocated <= 0 )
+      if ( threadsAllocated <= 0 && threadsNeeded > 0 )
         break
 
       const hackingTime       = ns.getHackTime( sortedServer.name )

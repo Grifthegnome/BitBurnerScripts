@@ -374,6 +374,56 @@ export function DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, 
   return totalThreadsAllocated
 }
 
+export function GetTotalThreadsRunningScriptOnNetwork( ns, hostServer, parentServer, scriptName, matchingArgs )
+{
+  //This should be called with "home" as the starting server by the caller.
+  const connections = ns.scan( hostServer )
+
+  let threadCount = 0
+
+  for ( let i = 0; i < connections.length; i++ )
+  {
+    const currentConnection = connections[ i ]
+
+    if ( currentConnection == parentServer )
+      continue
+
+    if ( ns.hasRootAccess( currentConnection ) )
+    {
+      const runningScripts = ns.ps( currentConnection )
+
+      for ( let j = 0; j < runningScripts.length; j++ )
+      {
+        const script = runningScripts[j]
+
+        if ( script.filename ==  scriptName )
+        {
+          if ( script.args.length < matchingArgs.length )
+            continue
+
+          let argsMatch = true
+          for ( let argIndex = 0; argIndex < matchingArgs.length; argIndex++ )
+          {
+            if ( script.args[ argIndex ] != matchingArgs[ argIndex ] )
+            {
+              argsMatch = false
+              break
+            }
+          }
+
+          if ( argsMatch )
+            threadCount += script.threads
+        }
+      }
+
+      threadCount += GetTotalThreadsRunningScriptOnNetwork( ns, currentConnection, hostServer, scriptName, matchingArgs )        
+    }
+  }
+
+  return threadCount
+
+}
+
 export function BruteForceServer( ns, serverName )
 {
   //Brute Force Ports
