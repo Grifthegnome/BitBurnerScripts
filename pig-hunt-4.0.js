@@ -96,8 +96,6 @@ export async function main(ns)
 
     let longestHackTime = 1000
 
-  debugger
-
     for ( let i = 0; i < searchedServers.length; i++  )
     {
 
@@ -119,8 +117,6 @@ export async function main(ns)
       
       const clampedCultivateThreads = clampodWeakenThreads + clampedGrowThreads
       const clampedHackThreads = sortedServer.requiredHackThreads
-
-      debugger
 
       const threadCountList = [ clampedCultivateThreads, clampedHackThreads ]
         
@@ -179,9 +175,6 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
   {
     const connectionName = connections[i]
     ns.print( "connection name: " + connectionName )
-
-    if ( connectionName == "CSEC")
-      debugger
 
     if ( connectionName == parentServer )
     {
@@ -295,8 +288,6 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
         ns.tprint( "No root access or hacking level too high skipping " + connectionName )
       }
     }
-
-    debugger
 
     let branchServerSearch = await ServerSearch( ns, connectionName, targetServer, maxEvaluationTime, farmingScript )
 
