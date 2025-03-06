@@ -32,8 +32,11 @@ totalGrowingTime, totalWeakeningTime, hackPercentage, requiredGrowThreads,requir
   this.heuristic      = GetTimeForEarningRatio( this.totalTime, maxMoney * hackPercentage )
 }
 
+const PIG_HUNT_DEBUG_PRINTS = false
+
 export async function main(ns) 
 {
+
   /*
   TO DO: save the results of a server to a file and only recompute 
   if hackTime, growTime, or weakenTime is diffrent from last cycle.
@@ -81,10 +84,14 @@ export async function main(ns)
   {
     const maxEvaluationTime = ( evaluationIncrement * 60 ) * 1000
 
-    ns.tprint("\n")
-    ns.tprint("///////////////////////////////////////////////////////////////////////////////////")
-    ns.tprint( "Starting New Search For Servers With Less Than " + GetReadableDateDelta(maxEvaluationTime) + " Eval Time." )
-    ns.tprint("///////////////////////////////////////////////////////////////////////////////////")
+    if ( PIG_HUNT_DEBUG_PRINTS )
+    {
+      ns.tprint("\n")
+      ns.tprint("///////////////////////////////////////////////////////////////////////////////////")
+      ns.tprint( "Starting New Search For Servers With Less Than " + GetReadableDateDelta(maxEvaluationTime) + " Eval Time." )
+      ns.tprint("///////////////////////////////////////////////////////////////////////////////////")
+    }
+    
 
     let searchStartTime = new Date()
 
@@ -92,14 +99,18 @@ export async function main(ns)
 
     let searchEndTime = new Date()
 
-    ns.tprint( "Server search completed after " + GetReadableDateDelta( searchEndTime.getTime() - searchStartTime.getTime() ) )
+    if ( PIG_HUNT_DEBUG_PRINTS )
+      ns.tprint( "Server search completed after " + GetReadableDateDelta( searchEndTime.getTime() - searchStartTime.getTime() ) )
 
     searchedServers.sort( (a, b) => b.heuristic - a.heuristic )
 
+    //We are relying on the fact that our work scripts kill themselves when they are done.
+    /*
     if ( searchedServers.length > 0 )
     {
       KillAllNetworkProcesses( ns, "home", "home" )
     }
+    */
 
     let totalRequiredThreads = 0;
     for ( let i = 0; i < searchedServers.length; i++ )
@@ -111,7 +122,7 @@ export async function main(ns)
     let totalThreadsAvailable = GetTotalAvailableThreadsForScript( ns, "home", "home", farmingScript )
     let totalThreadsAllocated = 0
 
-    let longestHackTime = 1000
+    let shortestHackTime = 1000
 
     for ( let i = 0; i < searchedServers.length; i++  )
     {
@@ -146,14 +157,14 @@ export async function main(ns)
       const growingTime       = ns.getGrowTime( sortedServer.name )
       const weakeningTime     = ns.getWeakenTime( sortedServer.name )
 
-      if ( hackingTime > longestHackTime )
-        longestHackTime = hackingTime
+      if ( hackingTime < shortestHackTime )
+        shortestHackTime = hackingTime
 
-      if ( growingTime > longestHackTime )
-        longestHackTime = growingTime
+      if ( growingTime < shortestHackTime )
+        shortestHackTime = growingTime
 
-      if ( weakeningTime > longestHackTime )
-        longestHackTime = weakeningTime
+      if ( weakeningTime < shortestHackTime )
+        shortestHackTime = weakeningTime
 
       totalThreadsAllocated += threadsAllocated   
     }
@@ -163,18 +174,23 @@ export async function main(ns)
     //Use a binary search to hone in on best search time.
     if ( searchedServers.length == 0 )
     {
-      ns.tprint( "No servers found, doubling search window." )
+      if ( PIG_HUNT_DEBUG_PRINTS )
+        ns.tprint( "No servers found, doubling search window." )
+
       evaluationIncrement *= 2
     }
     else if ( unallocatedThreadCount > 0 )
     {
-      ns.tprint( "We have unused threads after targeting all valid servers, doubling search window." )
+      if ( PIG_HUNT_DEBUG_PRINTS )
+        ns.tprint( "We have unused threads after targeting all valid servers, doubling search window." )
+      
       evaluationIncrement *= 2
     }   
 
-    ns.tprint( "Retrying search in " + GetReadableDateDelta( longestHackTime + 1000 ) )
+    if ( PIG_HUNT_DEBUG_PRINTS )
+      ns.tprint( "Retrying search in " + GetReadableDateDelta( shortestHackTime + 1000 ) )
 
-    await ns.sleep( longestHackTime + 1000 )
+    await ns.sleep( shortestHackTime + 1000 )
   }  
   
 }
@@ -195,14 +211,19 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
 
     if ( connectionName == parentServer )
     {
-      ns.tprint( "Found parent server of current server, skipping." )
+
+      if ( PIG_HUNT_DEBUG_PRINTS )
+        ns.tprint( "Found parent server of current server, skipping." )
 
       const processProgress = ( (i + 1) / connections.length ) * 100
       
-      if ( targetServer == parentServer )
-        ns.tprint( "Total Search Progress Completion: " + processProgress + "%"  )
-      else
-        ns.tprint( targetServer + " Sub Net Search Progress Completion: " + processProgress + "%" )
+      if ( PIG_HUNT_DEBUG_PRINTS )
+      {
+        if ( targetServer == parentServer )
+          ns.tprint( "Total Search Progress Completion: " + processProgress + "%"  )
+        else
+          ns.tprint( targetServer + " Sub Net Search Progress Completion: " + processProgress + "%" )
+      }
 
       continue
     }
@@ -210,14 +231,18 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
     //Skip servers we own.
     if ( myServers.indexOf( connectionName ) != -1 )
     {
-      ns.tprint( "Skipping a server because we own it." )
+      if ( PIG_HUNT_DEBUG_PRINTS )
+        ns.tprint( "Skipping a server because we own it." )
 
       const processProgress = ( (i + 1) / connections.length ) * 100
 
-      if ( targetServer == parentServer )
-        ns.tprint( "Total Search Progress Completion: " + processProgress + "%"  )
-      else
-        ns.tprint( targetServer + " Sub Net Search Progress Completion: " + processProgress + "%" )
+      if ( PIG_HUNT_DEBUG_PRINTS )
+      {
+        if ( targetServer == parentServer )
+          ns.tprint( "Total Search Progress Completion: " + processProgress + "%"  )
+        else
+          ns.tprint( targetServer + " Sub Net Search Progress Completion: " + processProgress + "%" )
+      }
 
       continue
     }
@@ -229,18 +254,23 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
     const growingTime       = ns.getGrowTime( connectionName )
     const weakeningTime     = ns.getWeakenTime( connectionName )
 
-    ns.tprint( "\n" )
-    ns.tprint( "Evaluating server: " + connectionName + ", ETA " + GetReadableDateDelta( growingTime + weakeningTime ) + ", please wait."  )
-
+    if ( PIG_HUNT_DEBUG_PRINTS )
+    {
+      ns.tprint( "\n" )
+      ns.tprint( "Evaluating server: " + connectionName + ", ETA " + GetReadableDateDelta( growingTime + weakeningTime ) + ", please wait."  )
+    }
+    
     const moneyAvailable    = ns.getServerMoneyAvailable( connectionName )
     const maxMoney          = ns.getServerMaxMoney( connectionName )
 
     if ( growingTime + weakeningTime > maxEvaluationTime )
     {
-      ns.tprint( GetReadableDateDelta( growingTime + weakeningTime ) + " is longer than max evaluation time of " + GetReadableDateDelta( maxEvaluationTime ) + ", skipping " + connectionName )
+      if ( PIG_HUNT_DEBUG_PRINTS )
+        ns.tprint( GetReadableDateDelta( growingTime + weakeningTime ) + " is longer than max evaluation time of " + GetReadableDateDelta( maxEvaluationTime ) + ", skipping " + connectionName )
     }
     else if ( maxMoney == 0 ) 
     {
+      if ( PIG_HUNT_DEBUG_PRINTS )
         ns.tprint( "Server cannot hold money, skipping " + connectionName )
     }
     else
@@ -263,7 +293,8 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
 
         const timeToMoneyRatio = GetTimeForEarningRatio( hackingTime + totalGrowingTime + totalWeakeningTime, maxMoney * hackPercentage )
 
-        ns.tprint( connectionName + " Time to Money Ratio: " + timeToMoneyRatio )
+        if ( PIG_HUNT_DEBUG_PRINTS )
+          ns.tprint( connectionName + " Time to Money Ratio: " + timeToMoneyRatio )
 
         const moneyPerHack = maxMoney * hackPercentage
 
@@ -277,14 +308,19 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
         //THIS IS MOST LIKELY WRONG AND WE SHOULD RE-MATH IT.
         const totalThreadCount = threadsToHack + requiredGrowThreads + requiredWeakenThreads
 
-        ns.tprint( "Thread Estimation for " + connectionName + ": " + totalThreadCount )
+        if ( PIG_HUNT_DEBUG_PRINTS )
+          ns.tprint( "Thread Estimation for " + connectionName + ": " + totalThreadCount )
         
         //Never Return our Home computer
         if ( connectionName != "home")
         {
-          ns.tprint( "\n" )
-          ns.tprint( "ADDING POTENTIAL SERVER: " + connectionName )
-          ns.tprint( "\n" )
+          if ( PIG_HUNT_DEBUG_PRINTS )
+          {
+            ns.tprint( "\n" )
+            ns.tprint( "ADDING POTENTIAL SERVER: " + connectionName )
+            ns.tprint( "\n" )
+          }
+          
           let serverData = new ServerData( 
           connectionName, 
           moneyAvailable,
@@ -306,7 +342,8 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
       }
       else
       {
-        ns.tprint( "No root access or hacking level too high skipping " + connectionName )
+        if ( PIG_HUNT_DEBUG_PRINTS )
+          ns.tprint( "No root access or hacking level too high skipping " + connectionName )
       }
     }
 
@@ -317,11 +354,13 @@ async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, 
 
     const processProgress = ( (i + 1) / connections.length ) * 100
 
-    if ( targetServer == parentServer )
-      ns.tprint( "Total Search Progress Completion: " + processProgress + "%"  )
-    else
-      ns.tprint( targetServer + " Sub Net Search Progress Completion: " + processProgress + "%" )
-
+    if ( PIG_HUNT_DEBUG_PRINTS )
+    {
+      if ( targetServer == parentServer )
+        ns.tprint( "Total Search Progress Completion: " + processProgress + "%"  )
+      else
+        ns.tprint( targetServer + " Sub Net Search Progress Completion: " + processProgress + "%" )
+    }    
   }
 
   return searchedServers

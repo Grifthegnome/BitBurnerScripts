@@ -13,8 +13,14 @@ export async function main(ns) {
     // Infinite loop that continously hacks/grows/weakens the target server
     while(true) 
     {
-        if (ns.getServerSecurityLevel(target) > securityThresh) 
-            await ns.weaken(target);
+        if (ns.getServerSecurityLevel(target) > securityThresh)
+        {
+          await ns.weaken(target);
+        }
+        else
+        {
+          return
+        }
   
         await ns.sleep( 1000 )
     }

@@ -310,10 +310,9 @@ export function AllocateThreadsForScript( ns, threadCount, scriptName, scriptArg
 
     if ( availableServer.availableThreads > threadCount )
     {
-      if ( !ns.fileExists( scriptName, availableServer.name ) )
-        ns.scp( scriptName, availableServer.name )
-
-      ns.tprint( "Server " + availableServer.name + ": Starting " + threadCount + " instances of " + scriptName + " with args " + scriptArgs )
+      
+      ns.scp( scriptName, availableServer.name )
+      //ns.tprint( "Server " + availableServer.name + ": Starting " + threadCount + " instances of " + scriptName + " with args " + scriptArgs )
       ns.exec( scriptName, availableServer.name, threadCount, ...scriptArgs )
 
       threadsAllocated += threadCount
@@ -323,10 +322,9 @@ export function AllocateThreadsForScript( ns, threadCount, scriptName, scriptArg
     }
     else
     {
-      if ( !ns.fileExists( scriptName, availableServer.name ) )
-        ns.scp( scriptName, availableServer.name )
       
-      ns.tprint( "Server " + availableServer.name + ": Starting " + availableServer.availableThreads + " instances of " + scriptName + " with args " + scriptArgs )
+      ns.scp( scriptName, availableServer.name )
+      //ns.tprint( "Server " + availableServer.name + ": Starting " + availableServer.availableThreads + " instances of " + scriptName + " with args " + scriptArgs )
       ns.exec( scriptName, availableServer.name, availableServer.availableThreads, ...scriptArgs )
 
       threadsAllocated += availableServer.availableThreads
