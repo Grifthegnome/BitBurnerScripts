@@ -197,6 +197,8 @@ export async function main(ns)
 async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, farmingScript, 
 weakenScript, growScript, hackScript )
 {
+  const TARGET_HACK_PERCENTAGE = 0.20
+
   const myHackingLevel = ns.getHackingLevel()
 
   const connections = ns.scan( targetServer )
@@ -302,8 +304,8 @@ weakenScript, growScript, hackScript )
 
         const moneyPerHack = maxMoney * hackPercentage
 
-        //This is a dumb estimation to hack 10% of account that doesn't account for dimishing returns.
-        let threadsToHack = moneyPerHack > 0 ? Math.floor( maxMoney * 0.10 / moneyPerHack ) : 0
+        //This is a dumb estimation to hack 20% of account that doesn't account for dimishing returns.
+        let threadsToHack = moneyPerHack > 0 ? Math.floor( maxMoney * TARGET_HACK_PERCENTAGE / moneyPerHack ) : 0
 
         //Dob't assign hacking threads if the server isn't ready to hack
         if ( securityLevel > secMinLevel || moneyAvailable < maxMoney )

@@ -299,6 +299,8 @@ export function AllocateThreadsForScript( ns, threadCount, scriptName, scriptArg
 {
   let availableServerList = GetAvailableServersForScript( ns, "home", "home", scriptName )
 
+  availableServerList.sort( (serverDataA, serverDataB ) => serverDataB.availableThreads - serverDataA.availableThreads  )
+
   let threadsAllocated = 0
 
   for ( let i = 0; i < availableServerList.length; i++ )
