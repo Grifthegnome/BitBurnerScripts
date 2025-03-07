@@ -1,6 +1,3 @@
-import { UnpauseScriptsOnServer } from "utility.js"
-import { PauseScriptsOnServer } from "utility.js"
-
 /** @param {NS} ns */
 export async function main(ns) 
 {
@@ -72,8 +69,7 @@ async function UpgradeServers( ns )
 
         if ( ns.getServerMoneyAvailable("home") > ns.getPurchasedServerCost(ramUpgrade) ) 
         {
-          let pausedScripts = PauseScriptsOnServer(ns, server)
-
+          ns.killall(server)
           ns.deleteServer( server )
 
           const newServer = ns.purchaseServer( server, ramUpgrade )
@@ -81,16 +77,6 @@ async function UpgradeServers( ns )
           if ( newServer != "" )
           {
             ns.tprint( "Upgraded " + server + " to " + ramUpgrade + "GB Ram." )
-
-            //We need to copy the script to the new server before we try to unpause.
-            for ( let j = 0; j < pausedScripts.length; j++ )
-            {
-              let pausedScript = pausedScripts[j]
-              ns.scp( pausedScript.scriptName, pausedScript.hostServerName )
-            }
-            
-            await UnpauseScriptsOnServer( ns, pausedScripts )
-
           }
           else
           {
