@@ -47,44 +47,55 @@ async function UpgradeServers( ns )
   // Iterator we'll use for our loop
     let purchasedServers = ns.getPurchasedServers();
 
-    for ( let i = 0 ; i < purchasedServers.length; i++ )
+    let serversAtCapacity = true
+    for ( let i = 0; i < purchasedServers.length; i++ )
     {
-      let server = purchasedServers[ i ]
-
+      const server = purchasedServers[ i ]
       const serverInfo = ns.getServer( server )
-
       //If our current ram usage is less than 80%, we don't need to upgrade this server.
       if ( serverInfo.ramUsed < serverInfo.maxRam * 0.8 )
-        continue
-
-      //Double onboard ram
-      const ramUpgrade = serverInfo.maxRam * 2
-
-      if ( ns.getServerMoneyAvailable("home") > ns.getPurchasedServerCost(ramUpgrade) ) 
       {
-        let pausedScripts = PauseScriptsOnServer(ns, server)
+        serversAtCapacity = false
+        break
+      }
+    }
 
-        ns.deleteServer( server )
+    if ( serversAtCapacity )
+    {
+        for ( let i = 0; i < purchasedServers.length; i++ )
+      {
+        const server = purchasedServers[ i ]
+        const serverInfo = ns.getServer( server )
 
-        const newServer = ns.purchaseServer( server, ramUpgrade )
+        //Double onboard ram
+        const ramUpgrade = serverInfo.maxRam * 2
 
-        if ( newServer != "" )
+        if ( ns.getServerMoneyAvailable("home") > ns.getPurchasedServerCost(ramUpgrade) ) 
         {
-          ns.tprint( "Upgraded " + server + " to " + ramUpgrade + "GB Ram." )
+          let pausedScripts = PauseScriptsOnServer(ns, server)
 
-          //We need to copy the script to the new server before we try to unpause.
-          for ( let j = 0; j < pausedScripts.length; j++ )
+          ns.deleteServer( server )
+
+          const newServer = ns.purchaseServer( server, ramUpgrade )
+
+          if ( newServer != "" )
           {
-            let pausedScript = pausedScripts[j]
-            ns.scp( pausedScript.scriptName, pausedScript.hostServerName )
-          }
-          
-          await UnpauseScriptsOnServer( ns, pausedScripts )
+            ns.tprint( "Upgraded " + server + " to " + ramUpgrade + "GB Ram." )
 
-        }
-        else
-        {
-          ns.tprint( "Server Upgrade for " + server + " failed, check logs." )
+            //We need to copy the script to the new server before we try to unpause.
+            for ( let j = 0; j < pausedScripts.length; j++ )
+            {
+              let pausedScript = pausedScripts[j]
+              ns.scp( pausedScript.scriptName, pausedScript.hostServerName )
+            }
+            
+            await UnpauseScriptsOnServer( ns, pausedScripts )
+
+          }
+          else
+          {
+            ns.tprint( "Server Upgrade for " + server + " failed, check logs." )
+          }
         }
       }
     }
