@@ -17,11 +17,8 @@ export async function main(ns) {
     {
       await ns.hack(target);
     }
-    else
-    {
-      return
-    }
-        
-    await ns.sleep( 1000 )
+    
+    return
+
   }
 }
