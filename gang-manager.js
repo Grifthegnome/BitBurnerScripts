@@ -20,6 +20,12 @@ function GangTaskValueBounds( highestWanted, highestRespect, highestMoney, highe
   this.highestDifficulty  = highestDifficulty
 }
 
+function GangMemberTaskHeuristic( heuristic, memberInfo )
+{
+  this.heuristic  = heuristic
+  this.memberInfo = memberInfo
+}
+
 /** @param {NS} ns */
 export async function main(ns) 
 {
@@ -55,6 +61,8 @@ export async function main(ns)
   }
 
   const gangTaskValueBounds = DetermineGangTaskValueBounds( taskStatsArray )
+
+  let gangMemberTaskPriorityHash = {}
 
   while( true )
   {
@@ -131,8 +139,6 @@ export async function main(ns)
 
     */
 
-    debugger
-
     const gangPriorityData = DetermineGangPriority( currentWantedGain, wantedLevelGainDeltaTrend, moneyDeltaTrend, hasMaxMembers )
 
     let taskPriorityArray = Array()
@@ -160,8 +166,6 @@ export async function main(ns)
       ns.tprint( "Is Combat: " + taskStats.isCombat )
     }
     
-    debugger
-
     taskPriorityArray.sort( (taskPriorityDataA, taskPriorityDataB) => taskPriorityDataB.priority - taskPriorityDataA.priority )
 
     ns.tprint( "\n" )
@@ -182,61 +186,104 @@ export async function main(ns)
     }
 
     //We need to sort by diffrent criteria depending on the task.
+
     memberInfoArray.sort( (memberInfoA, memberInfoB ) => memberInfoA.hack - memberInfoB.hack )
 
+    let taskAssigned = false
+    for ( let taskIndex = 0; taskIndex < taskPriorityArray.length && !taskAssigned; taskIndex++ )
+    {
+      const taskStats = taskPriorityArray[taskIndex].taskStats
+
+      let memberTaskHeuristics = Array()
+
+      for ( let memberIndex = 0; memberIndex < memberInfoArray.length; memberIndex++ )
+      {
+        const memberInfo = memberInfoArray[ memberIndex ]
+        const taskHeuristic = GenerateTaskHeuristicForMember( memberInfo, taskStats )
+
+        const memberTaskHeuristic = new GangMemberTaskHeuristic( taskHeuristic, memberInfo )
+        memberTaskHeuristics.push( memberTaskHeuristic )
+      }
+
+      if ( TaskIncreasesWantedLevel( taskStats ) )
+        memberTaskHeuristics.sort( (memberTaskHeuristicA, memberTaskHeuristicB) => memberTaskHeuristicB.heuristic - memberTaskHeuristicA.heuristic )
+      else if ( TaskReducesWantedLevel( taskStats ) )
+        memberTaskHeuristics.sort( (memberTaskHeuristicA, memberTaskHeuristicB) => memberTaskHeuristicA.heuristic - memberTaskHeuristicB.heuristic )
+      
+      for ( let memberIndex = 0; memberIndex < memberTaskHeuristics.length && !taskAssigned; memberIndex++ )
+      {
+        const memberInfo = memberTaskHeuristics[memberIndex].memberInfo
+
+        const memberTaskPriorityIndex = GetPriorityIndexForTask( taskPriorityArray, memberInfo.task )
+        const targetTaskPriortiyIndex = GetPriorityIndexForTask( taskPriorityArray, taskStats.name )
+
+        //If the member is already doing the task, skip them.
+        if ( memberTaskPriorityIndex <= targetTaskPriortiyIndex )
+        {
+          continue
+        }
+        else if ( taskStats.name == "Step Down" )
+        {
+
+          debugger
+
+          if ( memberInfo.name in gangMemberTaskPriorityHash )
+          {
+            const taskPriorityAtTimeOfAssignment = gangMemberTaskPriorityHash[ memberInfo.name ]
+
+            const memberTaskPriorityIndex = GetPriorityIndexForTask( taskPriorityAtTimeOfAssignment, memberInfo.task )
+          
+            let currentValidTaskIndex = GetFirstIndexWithPositivePriorityFromStartIndex( taskPriorityAtTimeOfAssignment, taskPriorityAtTimeOfAssignment.length )
+          
+            if ( currentValidTaskIndex > memberTaskPriorityIndex )
+            {
+              const stepdownTaskIndex = memberTaskPriorityIndex - 1
+              const taskToAssign = taskPriorityArray[stepdownTaskIndex].taskStats.name
+
+              gangMemberTaskPriorityHash[ memberInfo.name ] = taskPriorityArray
+          
+              ns.gang.setMemberTask( memberInfo.name, taskToAssign )
+              taskAssigned = true
+              break
+            }
+          }
+        }
+        else
+        {
+          let currentValidTaskIndex = GetFirstIndexWithPositivePriorityFromStartIndex( taskPriorityArray, memberTaskPriorityIndex )
+          
+          //We may need to make sure this doesn't go below 0
+          if ( currentValidTaskIndex == memberTaskPriorityIndex )
+            currentValidTaskIndex--
+
+          if ( currentValidTaskIndex < 0 )
+            debugger
+
+          const taskToAssign = taskPriorityArray[currentValidTaskIndex].taskStats.name
+
+          
+          gangMemberTaskPriorityHash[ memberInfo.name ] = taskPriorityArray
+          
+
+          ns.gang.setMemberTask( memberInfo.name, taskToAssign )
+          taskAssigned = true
+          break
+        }          
+      }
+    }
+
+    //Handle Gang Ascension
     for ( let i = 0; i < memberInfoArray.length; i++ )
     {
       const memberInfo = memberInfoArray[i]
-      
-      ns.tprint( "\n" )
-      ns.tprint( "Member: " + memberInfo.name )
-      ns.tprint( "Hack Skill: " + memberInfo.hack )
-      ns.tprint( "Task: " + memberInfo.task )
-      ns.tprint( "Wanted Level Gain: " + memberInfo.wantedLevelGain )
-      
-
-      for ( let j = 0; j < taskPriorityArray.length; j++ )
-      {
-        const taskStats = taskPriorityArray[j].taskStats
-        const taskHeuristic = GenerateTaskHeuristicForMember( memberInfo, taskStats )
-
-        ns.tprint( taskStats.name + ": " + taskHeuristic )
-
-      }
-
 
       const ascensionResult = ns.gang.getAscensionResult( memberInfo.name )
 
       if ( ascensionResult != undefined )
-      {
-        /*
-        ns.tprint( "Hack Asc: " + memberInfo.hack_asc_mult + "/" + ( memberInfo.hack_asc_mult * ascensionResult.hack ) )
-        ns.tprint( "Str Asc: " +  memberInfo.str_asc_mult + "/" + ( memberInfo.str_asc_mult * ascensionResult.str ) )
-        ns.tprint( "Def Asc: " +  memberInfo.def_asc_mult + "/" + ( memberInfo.def_asc_mult * ascensionResult.def ) )
-        ns.tprint( "Dex Asc: " +  memberInfo.dex_asc_mult + "/" + ( memberInfo.dex_asc_mult * ascensionResult.dex ) )
-        ns.tprint( "Agi Asc: " +  memberInfo.agi_asc_mult + "/" + ( memberInfo.agi_asc_mult * ascensionResult.agi ) )
-        ns.tprint( "Cha Asc: " +  memberInfo.cha_asc_mult + "/" + ( memberInfo.cha_asc_mult * ascensionResult.cha ) )
-        */
-        
+      {        
         AttemptGangMemberAscension( ns, memberInfo.name, ascensionResult )
       }
     }
-
-    //gangInfo.wantedLevel
-    
-
-   // gang.set
-
-    /*
-    We want the gang member with the highest hacking skill to perform the illegal stuff, because
-    the higher the hacking skill the lower the wanted level impact.
-    */
-
-    /*
-    Assign everyone to ethical hacking until someone gets a high enough hacking skill to do bad stuff
-    without nuking the wanted score. Subtract the bad stuff from the positive net outcome of ethtical
-    hacking. When we get higher rep, recruit new members and assign them to ehtical hacking.
-    */
 
     lastWantedLevelGain = currentWantedGain
     lastMoneyAvailable = currentMoneyAvailable
@@ -414,6 +461,35 @@ function DeterminePriorityForTask( gangPriorityData, taskStats, gangTaskValueBou
 
   const taskPriorityData = new GangTaskPriorityData( taskStats, priority )
   return taskPriorityData
+}
+
+function GetPriorityIndexForTask( taskPriorityArray, taskName )
+{
+  for ( let i = 0; i < taskPriorityArray.length; i++ )
+  {
+    const taskStats = taskPriorityArray[i].taskStats
+
+    if ( taskStats.name == taskName )
+      return i
+
+  }
+
+  return -1
+
+}
+
+function GetFirstIndexWithPositivePriorityFromStartIndex( taskPriorityArray, startIndex )
+{
+  for ( let i = startIndex; i >= 0; i-- )
+  {
+    const priority = taskPriorityArray[i].priority
+
+    if ( priority > 0 )
+      return i
+
+  }
+
+  return -1
 }
 
 function TaskReducesWantedLevel( taskStats )
