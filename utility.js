@@ -89,6 +89,41 @@ export function GetMaxThreadCountForScript( ns, scriptName, serverName )
   return threads
 }
 
+export function GetAvailableRamForServer( ns, serverName )
+{
+  const ramLimit      = ns.getServerMaxRam( serverName )
+  const ramUsed       = ns.getServerUsedRam( serverName )
+  const ramAvailable  = ramLimit - ramUsed
+
+  return ramAvailable
+}
+
+export function GetMaxRamForServer( ns, serverName )
+{
+  return ns.getServerMaxRam( serverName )
+}
+
+export function KillAllNetworkProcesses( ns, hostServer, parentServer )
+{  
+  //This should be called with "home" as the starting server by the caller.
+  const connections = ns.scan( hostServer )
+
+  for ( let i = 0; i < connections.length; i++ )
+  {
+    const currentConnection = connections[ i ]
+
+    if ( currentConnection == parentServer )
+      continue
+
+    if ( ns.hasRootAccess( currentConnection ) )
+      ns.killall( currentConnection )
+    
+    //Kill processes in sub-networks.
+    KillAllNetworkProcesses( ns, currentConnection, hostServer )
+    
+  }
+}
+
 export function PauseScriptsOnServer( ns, serverName )
 {
   let runningScripts = ns.ps( serverName )
@@ -237,10 +272,14 @@ export function GetTotalAvailableThreadsForScript( ns, hostServer, parentServer,
 
 }
 
-export function KillAllNetworkProcesses( ns, hostServer, parentServer )
+export function GetMaxThreadsForScript( ns, hostServer, parentServer, scriptName )
 {  
+  const ramCost = ns.getScriptRam( scriptName )
+
   //This should be called with "home" as the starting server by the caller.
   const connections = ns.scan( hostServer )
+
+  let totalThreadCount = 0
 
   for ( let i = 0; i < connections.length; i++ )
   {
@@ -250,12 +289,18 @@ export function KillAllNetworkProcesses( ns, hostServer, parentServer )
       continue
 
     if ( ns.hasRootAccess( currentConnection ) )
-      ns.killall( currentConnection )
-    
-    //Kill processes in sub-networks.
-    KillAllNetworkProcesses( ns, currentConnection, hostServer )
-    
+    {
+      let availableThreads = GetMaxThreadCountForScript( ns, scriptName, currentConnection )
+      totalThreadCount += availableThreads
+    }
+      
+    let branchThreads = GetMaxThreadsForScript( ns, currentConnection, hostServer, scriptName )
+    totalThreadCount += branchThreads
+
   }
+
+  return totalThreadCount
+
 }
 
 export function GetAvailableServersForScript( ns, hostServer, parentServer, scriptName )
@@ -423,6 +468,64 @@ export function GetTotalThreadsRunningScriptOnNetwork( ns, hostServer, parentSer
   }
 
   return threadCount
+
+}
+
+export function GetTotalAvailableRamOnNetwork( ns, hostServer, parentServer )
+{  
+  //This should be called with "home" as the starting server by the caller.
+  const connections = ns.scan( hostServer )
+
+  let totalAvailableRam = 0
+
+  for ( let i = 0; i < connections.length; i++ )
+  {
+    const currentConnection = connections[ i ]
+
+    if ( currentConnection == parentServer )
+      continue
+
+    if ( ns.hasRootAccess( currentConnection ) )
+    {
+      let availableRam = GetAvailableRamForServer( ns, currentConnection )
+      totalAvailableRam += availableRam
+    }
+      
+    let subNetAvailableRam = GetTotalAvailableRamOnNetwork( ns, currentConnection, hostServer )
+    totalAvailableRam += subNetAvailableRam
+
+  }
+
+  return totalAvailableRam
+
+}
+
+export function GetMaxRamOnNetwork( ns, hostServer, parentServer )
+{  
+  //This should be called with "home" as the starting server by the caller.
+  const connections = ns.scan( hostServer )
+
+  let totalMaxRam = 0
+
+  for ( let i = 0; i < connections.length; i++ )
+  {
+    const currentConnection = connections[ i ]
+
+    if ( currentConnection == parentServer )
+      continue
+
+    if ( ns.hasRootAccess( currentConnection ) )
+    {
+      let maxRam = GetMaxRamForServer( ns, currentConnection )
+      totalMaxRam += maxRam
+    }
+      
+    let subNetMaxRam = GetTotalAvailableRamOnNetwork( ns, currentConnection, hostServer )
+    totalMaxRam += subNetMaxRam
+
+  }
+
+  return totalMaxRam
 
 }
 

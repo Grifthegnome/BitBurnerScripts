@@ -4,11 +4,12 @@
 
 import { GetReadableDateDelta } from "utility.js"
 import { GetTotalAvailableThreadsForScript } from "utility.js"
+import { GetMaxThreadsForScript } from "utility.js"
 import { GetTotalThreadsRunningScriptOnNetwork } from "utility.js"
-import { UnpauseScriptsOnServer } from "utility.js"
-import { PauseAllServersTargetingGivenServer } from "utility.js"
+import { GetTotalAvailableRamOnNetwork } from "utility.js"
+import { GetMaxRamOnNetwork } from "utility.js"
 import { DistributeScriptsToNetwork } from "utility.js"
-import { KillAllNetworkProcesses } from "utility.js"
+
 
 /** @param {NS} ns */
 function ServerData( name, money, maxMoney, securityLevel, secMinLevel, hackingLevel, hackingTime, 
@@ -48,20 +49,19 @@ export async function main(ns)
   //TO DO: Because we will have three seperate scripts the thread estimations will be diffrent.
   //We many need to allocate by ram rather than threads.
   const hackScript      = "server-hack.js"
-  //const cultivateScript = "server-cultivate.js"
   const weakenScript    = "server-weaken.js"
   const growScript      = "server-grow.js"
+  const shareScript     = "server-share.js"
 
   const hackScriptRam       = ns.getScriptRam( hackScript )
-  //const cultivateScriptRam  = ns.getScriptRam( cultivateScript )
   const weakenScriptRam     = ns.getScriptRam( weakenScript )
   const growScriptRam       = ns.getScriptRam( growScript )
+  const shareScriptRam      = ns.getScriptRam( shareScript )
+
 
   //For now assign the farming script for the search to be the script with the highest ram cost.
   let farmingScript = hackScript
   let highestRamCost = hackScriptRam
-  //if ( cultivateScriptRam > hackScriptRam )
-  //  farmingScript = cultivateScript
 
   if ( weakenScriptRam > highestRamCost )
   {
@@ -169,6 +169,28 @@ export async function main(ns)
     }
 
     const unallocatedThreadCount = totalThreadsAvailable - totalThreadsAllocated
+    
+    //Share 75% of our remaining unused ram with our factions.)
+    const existingShareThreads    = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", shareScript, [] )
+    const maxShareThreadsPossible = GetMaxThreadsForScript( ns, "home", "home", shareScript )
+    
+    const totalAvailableRam = GetTotalAvailableRamOnNetwork( ns, "home", "home" )
+    const totalMaxRam       = GetMaxRamOnNetwork( ns, "home", "home" )
+
+    const minFreeRamFrac = Math.floor( totalMaxRam - ( totalMaxRam * 0.75 ) )
+    const clampedAvailableRam = totalAvailableRam > minFreeRamFrac ? Math.floor( totalAvailableRam - minFreeRamFrac ) : 0
+
+    const shareThreadFrac = clampedAvailableRam / totalMaxRam
+
+    const shareThreadsToAllocate = Math.max( Math.floor( ( maxShareThreadsPossible * shareThreadFrac ) - existingShareThreads ), 0 )
+
+    if ( shareThreadsToAllocate > 0 )
+    {
+      const scriptNameList = [ shareScript ]
+      const scriptArgsList = [ [] ]
+      const threadCountList = [ shareThreadsToAllocate ]
+      DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList )
+    }
 
     //Use a binary search to hone in on best search time.
     if ( searchedServers.length == 0 )
