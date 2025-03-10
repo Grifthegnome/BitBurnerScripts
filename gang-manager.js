@@ -1,3 +1,5 @@
+import { KillDuplicateScriptsOnHost } from "utility.js"
+
 function GangPriorityData( wantedWeight, respectWeight, moneyWeight, reputationWeight )
 {
   this.wantedWeight       = wantedWeight
@@ -42,6 +44,20 @@ export async function main(ns)
     ns.tprint( "Ending script." )
     return
   }
+
+  let idealPriority = "money"
+  if ( ns.args.length > 0 )
+    idealPriority = ns.args[0]
+
+  if ( idealPriority != "money" && idealPriority != "faction" )
+  {
+    ns.tprint( "Gang priority must be money or faction, " + idealPriority + " is an invalid option." )
+    ns.tprint( "Ending script." )
+    return
+  }
+
+  //Only allow one gang manager to run at a time.
+  KillDuplicateScriptsOnHost( ns, ns.getRunningScript() )
 
   let lastWantedLevelGain       = -1.0
   let currentWantedGain         = 0.0
@@ -144,7 +160,7 @@ export async function main(ns)
 
     */
 
-    const gangPriorityData = DetermineGangPriority( currentWantedGain, wantedLevelGainDeltaTrend, moneyDeltaTrend, hasMaxMembers )
+    const gangPriorityData = DetermineGangPriority( ns, idealPriority, gangInfo.faction, currentWantedGain, wantedLevelGainDeltaTrend, moneyDeltaTrend, hasMaxMembers )
 
     let taskPriorityArray = Array()
     for ( let taskIndex = 0; taskIndex < taskStatsArray.length; taskIndex++ )
@@ -266,6 +282,7 @@ export async function main(ns)
           
             let currentValidTaskIndex = GetFirstIndexWithPositivePriorityFromStartIndex( taskPriorityAtTimeOfAssignment, taskPriorityAtTimeOfAssignment.length - 1 )
           
+            //Step down to lower wanted level task if there are tasks to step down to.
             if ( currentValidTaskIndex > memberTaskPriorityIndex )
             {
               const stepdownTaskIndex = memberTaskPriorityIndex + 1
@@ -281,10 +298,9 @@ export async function main(ns)
               taskAssigned = true
               break
             }
+            //If there are no tasks in the priority hiarchy for us to step down to, revert to gang member's previous task.
             else if ( memberInfo.name in gangMemberPreviousTaskHash )
-            {
-              
-              debugger
+            {              
               const previousTaskName = gangMemberPreviousTaskHash[ memberInfo.name ]
 
               gangMemberPreviousTaskHash[ memberInfo.name ] = memberInfo.task
@@ -400,7 +416,7 @@ function GenerateTaskHeuristicForMember( memberInfo, taskStats )
 
 }
 
-function DetermineGangPriority( wantedLevelGainRate, wantedLevelGainRateTrend, moneyTrend, hasMaxMembers )
+function DetermineGangPriority( ns, idealPriority, gangFaction, wantedLevelGainRate, wantedLevelGainRateTrend, moneyTrend, hasMaxMembers )
 {
   /*
     1# always keep wanted level trending negative.
@@ -408,6 +424,13 @@ function DetermineGangPriority( wantedLevelGainRate, wantedLevelGainRateTrend, m
     3# if money is trending negative, prioritize earning money.
     4# if everything else is good, farm faction reputation.
   */
+
+  const hasSingularity = ns.fileExists( "Singularity.exe", "home" )
+  if ( hasSingularity )
+  {
+    //This doesn't do anything right now.
+    ns.singularity.getFactionRep( gangFaction )
+  }
 
   let wantedWeight      = 0.0
   let respectWeight     = 0.0
@@ -418,8 +441,9 @@ function DetermineGangPriority( wantedLevelGainRate, wantedLevelGainRateTrend, m
   {
     if ( hasMaxMembers )
     {
-      if ( moneyTrend > 0 )
+      if ( moneyTrend > 0 && idealPriority == "faction" )
       {
+        //This is our target if idealPriority is faction.
         //If we have a good wanted level, max members, and positive income, prioritize faction rep.
         wantedWeight      = 0.0
         respectWeight     = 0.0
@@ -428,6 +452,7 @@ function DetermineGangPriority( wantedLevelGainRate, wantedLevelGainRateTrend, m
       }
       else
       {
+        //This is our target if idealPriority is money.
         //If we are losing money, prioritize getting more.
         wantedWeight      = 0.0
         respectWeight     = 0.0

@@ -124,6 +124,20 @@ export function KillAllNetworkProcesses( ns, hostServer, parentServer )
   }
 }
 
+export function KillDuplicateScriptsOnHost( ns, scriptName )
+{
+  let processes = ns.ps( ns.getHostname() )
+  for ( var i = 0; i < processes.length; i++ )
+  {
+    const process = processes[i]
+
+    if ( process.filename == scriptName.filename && process.pid != scriptName.pid )
+    {
+      ns.kill( process.pid )
+    }
+  }
+}
+
 export function PauseScriptsOnServer( ns, serverName )
 {
   let runningScripts = ns.ps( serverName )
