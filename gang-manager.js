@@ -29,6 +29,7 @@ function GangMemberTaskHeuristic( heuristic, memberInfo )
 }
 
 const GANG_MEMBER_STEPDOWN_DBOUNCE = 60000
+const DEBUG_PRINT_GANG_MANAGER = false
 
 /** @param {NS} ns */
 export async function main(ns) 
@@ -169,34 +170,38 @@ export async function main(ns)
       const taskPriorityData = DeterminePriorityForTask( gangPriorityData, taskStats, gangTaskValueBounds )
       taskPriorityArray.push( taskPriorityData )
 
-      ns.tprint( "\n" )
-      ns.tprint( taskStats.name )
-      ns.tprint( "Base Money: " + taskStats.baseMoney )
-      ns.tprint( "Base Respect: " + taskStats.baseRespect )
-      ns.tprint( "Base Wanted: " + taskStats.baseWanted )
-      ns.tprint( "Difficulty: " + taskStats.difficulty )
+      if ( DEBUG_PRINT_GANG_MANAGER )
+      {
+        ns.tprint( "\n" )
+        ns.tprint( taskStats.name )
+        ns.tprint( "Base Money: " + taskStats.baseMoney )
+        ns.tprint( "Base Respect: " + taskStats.baseRespect )
+        ns.tprint( "Base Wanted: " + taskStats.baseWanted )
+        ns.tprint( "Difficulty: " + taskStats.difficulty )
 
-      ns.tprint( "Hack Weight: " + taskStats.hackWeight )
-      ns.tprint( "Str Weight: " + taskStats.strWeight )
-      ns.tprint( "Def Weight: " + taskStats.defWeight )
-      ns.tprint( "Dex Weight: " + taskStats.dexWeight )
-      ns.tprint( "Agi Weight: " + taskStats.agiWeight )
-      ns.tprint( "Cha Weight: " + taskStats.chaWeight )
+        ns.tprint( "Hack Weight: " + taskStats.hackWeight )
+        ns.tprint( "Str Weight: " + taskStats.strWeight )
+        ns.tprint( "Def Weight: " + taskStats.defWeight )
+        ns.tprint( "Dex Weight: " + taskStats.dexWeight )
+        ns.tprint( "Agi Weight: " + taskStats.agiWeight )
+        ns.tprint( "Cha Weight: " + taskStats.chaWeight )
 
-      ns.tprint( "Is Hacking: " + taskStats.isHacking )
-      ns.tprint( "Is Combat: " + taskStats.isCombat )
+        ns.tprint( "Is Hacking: " + taskStats.isHacking )
+        ns.tprint( "Is Combat: " + taskStats.isCombat )
+      }
     }
     
     taskPriorityArray.sort( (taskPriorityDataA, taskPriorityDataB) => taskPriorityDataB.priority - taskPriorityDataA.priority )
 
-    ns.tprint( "\n" )
-    ns.tprint( "Wanted Level: " + gangInfo.wantedLevel )
-    ns.tprint( "Wanted Gain: " + gangInfo.wantedLevelGainRate )
-    ns.tprint( "Wanted Gain Trend: " + wantedLevelGainDeltaTrend )
-    ns.tprint( "Wanted Penalty: " + gangInfo.wantedPenalty )
-    ns.tprint( "Money Trend: " + moneyDeltaTrend )
-
-    //return
+    if ( DEBUG_PRINT_GANG_MANAGER )
+    {
+      ns.tprint( "\n" )
+      ns.tprint( "Wanted Level: " + gangInfo.wantedLevel )
+      ns.tprint( "Wanted Gain: " + gangInfo.wantedLevelGainRate )
+      ns.tprint( "Wanted Gain Trend: " + wantedLevelGainDeltaTrend )
+      ns.tprint( "Wanted Penalty: " + gangInfo.wantedPenalty )
+      ns.tprint( "Money Trend: " + moneyDeltaTrend )
+    } 
 
     let memberInfoArray = Array()
 
