@@ -26,6 +26,8 @@ function GangMemberTaskHeuristic( heuristic, memberInfo )
   this.memberInfo = memberInfo
 }
 
+const GANG_MEMBER_STEPDOWN_DBOUNCE = 60000
+
 /** @param {NS} ns */
 export async function main(ns) 
 {
@@ -63,6 +65,9 @@ export async function main(ns)
   const gangTaskValueBounds = DetermineGangTaskValueBounds( taskStatsArray )
 
   let gangMemberTaskPriorityHash = {}
+  let gangMemberPreviousTaskHash = {}
+  let gangMemberLastStepDownTimeHash = {}
+  let lastGangMemberAssignedTask = ""
 
   while( true )
   {
@@ -192,57 +197,105 @@ export async function main(ns)
     let taskAssigned = false
     for ( let taskIndex = 0; taskIndex < taskPriorityArray.length && !taskAssigned; taskIndex++ )
     {
-      const taskStats = taskPriorityArray[taskIndex].taskStats
+      const targetTaskStats = taskPriorityArray[taskIndex].taskStats
 
       let memberTaskHeuristics = Array()
 
       for ( let memberIndex = 0; memberIndex < memberInfoArray.length; memberIndex++ )
       {
         const memberInfo = memberInfoArray[ memberIndex ]
-        const taskHeuristic = GenerateTaskHeuristicForMember( memberInfo, taskStats )
+        const taskHeuristic = GenerateTaskHeuristicForMember( memberInfo, targetTaskStats )
 
         const memberTaskHeuristic = new GangMemberTaskHeuristic( taskHeuristic, memberInfo )
         memberTaskHeuristics.push( memberTaskHeuristic )
       }
 
-      if ( TaskIncreasesWantedLevel( taskStats ) )
+      if ( TaskIncreasesWantedLevel( targetTaskStats ) )
         memberTaskHeuristics.sort( (memberTaskHeuristicA, memberTaskHeuristicB) => memberTaskHeuristicB.heuristic - memberTaskHeuristicA.heuristic )
-      else if ( TaskReducesWantedLevel( taskStats ) )
+      else if ( TaskReducesWantedLevel( targetTaskStats ) )
         memberTaskHeuristics.sort( (memberTaskHeuristicA, memberTaskHeuristicB) => memberTaskHeuristicA.heuristic - memberTaskHeuristicB.heuristic )
       
+
+      //We need to cover the case where no task change is needed.
+
+
       for ( let memberIndex = 0; memberIndex < memberTaskHeuristics.length && !taskAssigned; memberIndex++ )
       {
         const memberInfo = memberTaskHeuristics[memberIndex].memberInfo
 
         const memberTaskPriorityIndex = GetPriorityIndexForTask( taskPriorityArray, memberInfo.task )
-        const targetTaskPriortiyIndex = GetPriorityIndexForTask( taskPriorityArray, taskStats.name )
+        const targetTaskPriortiyIndex = GetPriorityIndexForTask( taskPriorityArray, targetTaskStats.name )
+
+        //This is to handle the case where going from an agressive task, to a slightly less agressive task lowers our wanted level enough to balance things out.
+        let stepDownCurrentTask = false
+        if ( memberInfo.name == lastGangMemberAssignedTask )
+        {
+          if ( memberInfo.name in gangMemberTaskPriorityHash )
+          {
+            const taskPriorityAtTimeOfAssignment = gangMemberTaskPriorityHash[ memberInfo.name ]
+            const currentTaskIndex = GetPriorityIndexForTask( taskPriorityAtTimeOfAssignment, memberInfo.task )
+            const currentTaskStats = taskPriorityAtTimeOfAssignment[ currentTaskIndex ].taskStats
+            
+            //If we need to do a task that decreases wanted level, but we are doing a task that increases wanted level.
+            if ( TaskReducesWantedLevel( targetTaskStats ) && TaskIncreasesWantedLevel( currentTaskStats ) )
+            {
+              stepDownCurrentTask = true
+            }
+          }          
+        }
+
+        let nextStepDownTime = 0
+        if ( memberInfo.name in gangMemberLastStepDownTimeHash )
+        {
+          const lastStepDownTime = gangMemberLastStepDownTimeHash[ memberInfo.name ]
+          nextStepDownTime = lastStepDownTime + GANG_MEMBER_STEPDOWN_DBOUNCE
+        }
 
         //If the member is already doing the task, skip them.
-        if ( memberTaskPriorityIndex <= targetTaskPriortiyIndex )
+        if ( memberTaskPriorityIndex <= targetTaskPriortiyIndex || nextStepDownTime > Date.now() )
         {
           continue
         }
-        else if ( taskStats.name == "Step Down" )
+        else if ( stepDownCurrentTask )
         {
-
-          debugger
-
           if ( memberInfo.name in gangMemberTaskPriorityHash )
           {
             const taskPriorityAtTimeOfAssignment = gangMemberTaskPriorityHash[ memberInfo.name ]
 
             const memberTaskPriorityIndex = GetPriorityIndexForTask( taskPriorityAtTimeOfAssignment, memberInfo.task )
           
-            let currentValidTaskIndex = GetFirstIndexWithPositivePriorityFromStartIndex( taskPriorityAtTimeOfAssignment, taskPriorityAtTimeOfAssignment.length )
+            let currentValidTaskIndex = GetFirstIndexWithPositivePriorityFromStartIndex( taskPriorityAtTimeOfAssignment, taskPriorityAtTimeOfAssignment.length - 1 )
           
             if ( currentValidTaskIndex > memberTaskPriorityIndex )
             {
-              const stepdownTaskIndex = memberTaskPriorityIndex - 1
-              const taskToAssign = taskPriorityArray[stepdownTaskIndex].taskStats.name
+              const stepdownTaskIndex = memberTaskPriorityIndex + 1
+              const taskToAssign = taskPriorityAtTimeOfAssignment[stepdownTaskIndex].taskStats.name
 
-              gangMemberTaskPriorityHash[ memberInfo.name ] = taskPriorityArray
+              gangMemberPreviousTaskHash[ memberInfo.name ] = memberInfo.task
+              gangMemberTaskPriorityHash[ memberInfo.name ] = taskPriorityAtTimeOfAssignment
+              gangMemberLastStepDownTimeHash[ memberInfo.name ] = Date.now()
           
               ns.gang.setMemberTask( memberInfo.name, taskToAssign )
+              lastGangMemberAssignedTask    = memberInfo.name
+              
+              taskAssigned = true
+              break
+            }
+            else if ( memberInfo.name in gangMemberPreviousTaskHash )
+            {
+              
+              debugger
+              const previousTaskName = gangMemberPreviousTaskHash[ memberInfo.name ]
+
+              gangMemberPreviousTaskHash[ memberInfo.name ] = memberInfo.task
+
+              //This is not the correct task priority entry for the previous task, but rather the current task, will this cause issues?
+              gangMemberTaskPriorityHash[ memberInfo.name ] = taskPriorityAtTimeOfAssignment
+              gangMemberLastStepDownTimeHash[ memberInfo.name ] = Date.now()
+          
+              ns.gang.setMemberTask( memberInfo.name, previousTaskName )
+              lastGangMemberAssignedTask    = memberInfo.name
+              
               taskAssigned = true
               break
             }
@@ -250,6 +303,7 @@ export async function main(ns)
         }
         else
         {
+          
           let currentValidTaskIndex = GetFirstIndexWithPositivePriorityFromStartIndex( taskPriorityArray, memberTaskPriorityIndex )
           
           //We may need to make sure this doesn't go below 0
@@ -261,11 +315,12 @@ export async function main(ns)
 
           const taskToAssign = taskPriorityArray[currentValidTaskIndex].taskStats.name
 
-          
+          gangMemberPreviousTaskHash[ memberInfo.name ] = memberInfo.task
           gangMemberTaskPriorityHash[ memberInfo.name ] = taskPriorityArray
           
 
           ns.gang.setMemberTask( memberInfo.name, taskToAssign )
+          lastGangMemberAssignedTask = memberInfo.name
           taskAssigned = true
           break
         }          
