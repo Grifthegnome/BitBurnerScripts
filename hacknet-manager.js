@@ -1,13 +1,48 @@
+import { KillDuplicateScriptsOnHost } from "utility.js"
+
+const HACKNET_INCOME_DATA_FILENAME = "hacknet_income.txt"
+
 /** @param {NS} ns */
 export async function main(ns) 
 {
+  //Only allow one gang manager to run at a time.
+  KillDuplicateScriptsOnHost( ns, ns.getRunningScript() )
+
   let accountPercentage = 0.01
 
   if ( ns.args.length > 0 )
     accountPercentage = ns.args[0]
 
-  while ( true )
+  //We need a way to save this out to a file and read it later.
+  let totalSpend = 0
+  let totalSpendLastTick = 0
+  if ( ns.hacknet.numNodes() != 0 )
   {
+    if ( ns.fileExists( HACKNET_INCOME_DATA_FILENAME, ns.getHostname() ) )
+    {
+      const fileContent = Number( ns.read( HACKNET_INCOME_DATA_FILENAME ) )
+      totalSpend = fileContent
+    }
+    else
+    {
+      await ns.write( HACKNET_INCOME_DATA_FILENAME, 0, "w" )
+    }
+  }
+  else
+  {
+    await ns.write( HACKNET_INCOME_DATA_FILENAME, 0, "w" )
+  }
+  
+  totalSpendLastTick = totalSpend
+
+  while ( true )
+  {    
+    if ( totalSpend != totalSpendLastTick )
+    {
+      await ns.write( HACKNET_INCOME_DATA_FILENAME, totalSpend, "w" )
+      totalSpendLastTick = totalSpend
+    }
+    
     await ns.sleep( 100 )
 
     const currentMoney = ns.getServerMoneyAvailable( "home" )
@@ -18,11 +53,28 @@ export async function main(ns)
     let purchasedUpgrade = false
     let upgradesRemaining = false
 
+    let totalIncome = 0
+    for ( let i = 0; i < nodeCount; i++ )
+    {
+      const nodeStats = ns.hacknet.getNodeStats( i )
+      totalIncome += nodeStats.totalProduction
+    }
+
+    //We should not buy anything if our spend is greatly exceeding our production.
+    if ( totalIncome > 0 )
+    {
+      if ( totalSpend * 0.8 > totalIncome )
+      {
+        continue
+      }
+    }
+
     if ( ns.hacknet.maxNumNodes() > nodeCount )
     {
       if ( ns.hacknet.getPurchaseNodeCost() <= spendFrac )
       {
         ns.hacknet.purchaseNode()
+        totalSpend += ns.hacknet.getPurchaseNodeCost()
         continue
       }
     }
@@ -42,6 +94,7 @@ export async function main(ns)
         if ( levelUpgradeCost <= spendFrac )
         {
           ns.hacknet.upgradeLevel( i, 1 )
+          totalSpend += levelUpgradeCost
           purchasedUpgrade = true
           break
         }          
@@ -55,6 +108,7 @@ export async function main(ns)
         if ( ramUpgradeCost <= spendFrac )
         {
           ns.hacknet.upgradeRam( i, 1 )
+          totalSpend += ramUpgradeCost
           purchasedUpgrade = true
           break
         }
@@ -68,6 +122,7 @@ export async function main(ns)
         if ( coreUpgradeCost <= spendFrac )
         {
           ns.hacknet.upgradeCore( i, 1 )
+          totalSpend += coreUpgradeCost
           purchasedUpgrade = true
           break
         }
