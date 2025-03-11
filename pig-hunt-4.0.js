@@ -37,6 +37,7 @@ totalGrowingTime, totalWeakeningTime, hackPercentage, requiredGrowThreads,requir
 
 const PIG_HUNT_DEBUG_PRINTS = false
 const GROW_THREAD_SECURITY_DELTA = 0.004 //This is a constant in the game.
+const ACCOUNT_HACK_ADJUSTMENT_PERCENTILE = 0.01
 
 export async function main(ns) 
 {
@@ -188,6 +189,12 @@ export async function main(ns)
 
     const unallocatedThreadCount = totalThreadsAvailable - totalThreadsAllocated
     
+    //if we have unallocated threads and we're not hacking 100% of targeted accounts.
+    if ( unallocatedThreadCount > 0 && accountHackPercentile < 1.0 )
+    {
+      accountHackPercentile = Math.min( accountHackPercentile + ACCOUNT_HACK_ADJUSTMENT_PERCENTILE, 1.0 )
+    } 
+
     //Share 75% of our remaining unused ram with our factions.)
     const existingShareThreads    = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", shareScript, [] )
     const maxShareThreadsPossible = GetMaxThreadsForScript( ns, "home", "home", shareScript )
