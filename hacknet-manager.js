@@ -2,6 +2,10 @@ import { KillDuplicateScriptsOnHost } from "utility.js"
 
 const HACKNET_INCOME_DATA_FILENAME = "hacknet_spend.txt"
 
+//Number of hours of income we will allow to earn a profit on our total hacknet spend.
+//If we can't recoup our spend and earn a profit within this time, we will pause spending.
+const HACKNET_MAX_RETURN_ON_INVEST_HOURS = 3
+
 /** @param {NS} ns */
 export async function main(ns) 
 {
@@ -12,6 +16,9 @@ export async function main(ns)
 
   if ( ns.args.length > 0 )
     accountPercentage = ns.args[0]
+
+  const maxROIMinutes = HACKNET_MAX_RETURN_ON_INVEST_HOURS * 60
+  const maxROISeconds = maxROIMinutes * 60
 
   //We need a way to save this out to a file and read it later.
   let totalSpend = 0
@@ -54,27 +61,23 @@ export async function main(ns)
     let upgradesRemaining = false
 
     let totalIncome = 0
+    let totalIncomeRate = 0
     for ( let i = 0; i < nodeCount; i++ )
     {
       const nodeStats = ns.hacknet.getNodeStats( i )
       totalIncome += nodeStats.totalProduction
+      totalIncomeRate += nodeStats.production
     }
+
+    const maxROIIncomePossible = maxROISeconds * totalIncomeRate
+    const currentROIValuation = totalIncome + maxROIIncomePossible
 
     //We should not buy anything if our spend is greatly exceeding our production.
     if ( totalIncome > 0 )
     {
-      if ( totalSpend * 0.8 > totalIncome )
+      //Basically check to see if at the end of our designated time window, we've made any money for our investement.
+      if ( totalSpend > currentROIValuation )
       {
-        continue
-      }
-    }
-
-    if ( ns.hacknet.maxNumNodes() > nodeCount )
-    {
-      if ( ns.hacknet.getPurchaseNodeCost() <= spendFrac )
-      {
-        totalSpend += ns.hacknet.getPurchaseNodeCost()
-        ns.hacknet.purchaseNode()
         continue
       }
     }
@@ -126,6 +129,16 @@ export async function main(ns)
           purchasedUpgrade = true
           break
         }
+      }
+    }
+
+    if ( ns.hacknet.maxNumNodes() > nodeCount )
+    {
+      if ( ns.hacknet.getPurchaseNodeCost() <= spendFrac )
+      {
+        totalSpend += ns.hacknet.getPurchaseNodeCost()
+        ns.hacknet.purchaseNode()
+        continue
       }
     }
 
