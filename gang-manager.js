@@ -111,6 +111,8 @@ export async function main(ns)
   {
     const gangInfo = ns.gang.getGangInformation()
 
+    const warfareMode = ( idealPriority == "warfare" && gangInfo.territoryWarfareEngaged )
+
     currentWantedGain = gangInfo.wantedLevelGainRate
     currentMoneyAvailable = ns.getServerMoneyAvailable( "home" )
 
@@ -233,7 +235,6 @@ export async function main(ns)
         memberTaskHeuristics.sort( (memberTaskHeuristicA, memberTaskHeuristicB) => memberTaskHeuristicA.heuristic - memberTaskHeuristicB.heuristic )
       
       //We need to cover the case where no task change is needed.
-      const warfareMode = ( idealPriority == "warfare" && gangInfo.territoryWarfareEngaged )
       for ( let memberIndex = 0; memberIndex < memberTaskHeuristics.length && ( !taskAssigned && !warfareMode ); memberIndex++ )
       {
         const memberInfo = memberTaskHeuristics[memberIndex].memberInfo
@@ -352,8 +353,8 @@ export async function main(ns)
         if ( ascensionResult != undefined )
         {
           //Only ascend one gang member per gang tick.
-          AttemptGangMemberAscension( ns, memberInfo.name, ascensionResult )
-          break
+          if ( AttemptGangMemberAscension( ns, memberInfo.name, ascensionResult ) )
+            break
         }
       }
     }
@@ -365,10 +366,13 @@ export async function main(ns)
     //Note: Currently, whether the weakest gang members get gear upgrades first or the best get gear first depends on if the gang is prioritizing hostile actions or wanted reduction.
 
     //Handle Gang Upgrades
-    for ( let i = 0; i < memberInfoArray.length; i++ )
+    if ( warfareMode || idealPriority != "warfare" )
     {
-      const memberInfo = memberInfoArray[i]
-      AttemptGangMemberUpgrade( ns, memberInfo, prioritizedEquipmentPurchaseList )
+      for ( let i = 0; i < memberInfoArray.length; i++ )
+      {
+        const memberInfo = memberInfoArray[i]
+        AttemptGangMemberUpgrade( ns, memberInfo, prioritizedEquipmentPurchaseList )
+      }
     }
     
     lastWantedLevelGain = currentWantedGain
@@ -381,7 +385,6 @@ export async function main(ns)
 
 function AttemptGangMemberAscension( ns, memberName, ascensionResult )
 {
-  
   const ascensionThreshold = 1 / 3
 
   let shouldAscend = false
@@ -403,7 +406,12 @@ function AttemptGangMemberAscension( ns, memberName, ascensionResult )
   {
     ns.tprint( "Ascending Member " + memberName )
     ns.gang.ascendMember( memberName )
+
+    return true
   }
+  
+  return false
+
 }
 
 function BuildGangEquipmentTables( ns )
