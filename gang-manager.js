@@ -1,11 +1,12 @@
 import { KillDuplicateScriptsOnHost } from "utility.js"
 
-function GangPriorityData( wantedWeight, respectWeight, moneyWeight, reputationWeight )
+function GangPriorityData( wantedWeight, respectWeight, moneyWeight, reputationWeight, warfareWeight )
 {
   this.wantedWeight       = wantedWeight
   this.respectWeight      = respectWeight
   this.moneyWeight        = moneyWeight
   this.reputationWeight   = reputationWeight
+  this.warfareWeight      = warfareWeight
 }
 
 function GangTaskPriorityData( taskStats, priority )
@@ -69,7 +70,7 @@ export async function main(ns)
   if ( ns.args.length > 0 )
     idealPriority = ns.args[0]
 
-  if ( idealPriority != "money" && idealPriority != "faction" )
+  if ( idealPriority != "money" && idealPriority != "faction" && idealPriority != "warfare" )
   {
     ns.tprint( "Gang priority must be money or faction, " + idealPriority + " is an invalid option." )
     ns.tprint( "Ending script." )
@@ -156,13 +157,13 @@ export async function main(ns)
       }
     }
 
-    const gangPriorityData = DetermineGangPriority( ns, idealPriority, gangInfo.faction, currentWantedGain, wantedLevelGainDeltaTrend, moneyDeltaTrend, hasMaxMembers )
+    const gangPriorityData = DetermineGangPriority( idealPriority, currentWantedGain, wantedLevelGainDeltaTrend, moneyDeltaTrend, hasMaxMembers )
 
     let taskPriorityArray = Array()
     for ( let taskIndex = 0; taskIndex < taskStatsArray.length; taskIndex++ )
     {
       const taskStats = taskStatsArray[ taskIndex ]
-      const taskPriorityData = DeterminePriorityForTask( gangPriorityData, taskStats, gangTaskValueBounds )
+      const taskPriorityData = DeterminePriorityForTask( gangPriorityData, taskStats, gangTaskValueBounds, gangInfo.territoryWarfareEngaged )
       taskPriorityArray.push( taskPriorityData )
 
       if ( DEBUG_PRINT_GANG_MANAGER )
@@ -231,11 +232,9 @@ export async function main(ns)
       else if ( TaskReducesWantedLevel( targetTaskStats ) )
         memberTaskHeuristics.sort( (memberTaskHeuristicA, memberTaskHeuristicB) => memberTaskHeuristicA.heuristic - memberTaskHeuristicB.heuristic )
       
-
       //We need to cover the case where no task change is needed.
-
-
-      for ( let memberIndex = 0; memberIndex < memberTaskHeuristics.length && !taskAssigned; memberIndex++ )
+      const warfareMode = ( idealPriority == "warfare" && gangInfo.territoryWarfareEngaged )
+      for ( let memberIndex = 0; memberIndex < memberTaskHeuristics.length && ( !taskAssigned && !warfareMode ); memberIndex++ )
       {
         const memberInfo = memberTaskHeuristics[memberIndex].memberInfo
 
@@ -360,8 +359,6 @@ export async function main(ns)
     }
     
     const prioritizedEquipmentPurchaseList = PrioritizeEquipmentPurchaseTable( equipmentTableHash, gangInfo.territoryWarfareEngaged )
-
-    debugger
 
     //Note: All non-augment upgrades are lost when gang member ascends, factor this into spend.
 
@@ -597,7 +594,7 @@ function GenerateTaskHeuristicForMember( memberInfo, taskStats )
 
 }
 
-function DetermineGangPriority( ns, idealPriority, gangFaction, wantedLevelGainRate, wantedLevelGainRateTrend, moneyTrend, hasMaxMembers )
+function DetermineGangPriority( idealPriority, wantedLevelGainRate, wantedLevelGainRateTrend, moneyTrend, hasMaxMembers )
 {
   /*
     1# always keep wanted level trending negative.
@@ -606,66 +603,77 @@ function DetermineGangPriority( ns, idealPriority, gangFaction, wantedLevelGainR
     4# if everything else is good, farm faction reputation.
   */
 
-  const hasSingularity = ns.fileExists( "Singularity.exe", "home" )
-  if ( hasSingularity )
-  {
-    //This doesn't do anything right now.
-    ns.singularity.getFactionRep( gangFaction )
-  }
-
   let wantedWeight      = 0.0
   let respectWeight     = 0.0
   let moneyWeight       = 0.0
   let reputationWeight  = 0.0
+  let warfareWeight     = 0.0
 
-  if ( wantedLevelGainRate < 0 || wantedLevelGainRateTrend < 0 )
+  if ( idealPriority == "warfare" )
   {
-    if ( hasMaxMembers )
-    {
-      if ( moneyTrend > 0 && idealPriority == "faction" )
-      {
-        //This is our target if idealPriority is faction.
-        //If we have a good wanted level, max members, and positive income, prioritize faction rep.
-        wantedWeight      = 0.0
-        respectWeight     = 0.0
-        moneyWeight       = 0.0
-        reputationWeight  = 1.0
-      }
-      else
-      {
-        //This is our target if idealPriority is money.
-        //If we are losing money, prioritize getting more.
-        wantedWeight      = 0.0
-        respectWeight     = 0.0
-        moneyWeight       = 1.0
-        reputationWeight  = 0.0
-      }
-
-    }
-    else
-    {
-      //If we don't have max members prioritize respect, so we can get them.
-      wantedWeight      = 0.0
-      respectWeight     = 1.0
-      moneyWeight       = 0.0
-      reputationWeight  = 0.0
-    }
-  }
-  else
-  {
-    //Manage our wanted level.
-    wantedWeight      = 1.0
+    wantedWeight      = 0.0
     respectWeight     = 0.0
     moneyWeight       = 0.0
     reputationWeight  = 0.0
+    warfareWeight     = 1.0
   }
+  else
+  {
+    if ( wantedLevelGainRate < 0 || wantedLevelGainRateTrend < 0 )
+    {
+      if ( hasMaxMembers )
+      {
+        if ( moneyTrend > 0 && idealPriority == "faction" )
+        {
+          //This is our target if idealPriority is faction.
+          //If we have a good wanted level, max members, and positive income, prioritize faction rep.
+          wantedWeight      = 0.0
+          respectWeight     = 0.0
+          moneyWeight       = 0.0
+          reputationWeight  = 1.0
+          warfareWeight     = 0.0
+        }
+        else
+        {
+          //This is our target if idealPriority is money.
+          //If we are losing money, prioritize getting more.
+          wantedWeight      = 0.0
+          respectWeight     = 0.0
+          moneyWeight       = 1.0
+          reputationWeight  = 0.0
+          warfareWeight     = 0.0
+        }
+
+      }
+      else
+      {
+        //If we don't have max members prioritize respect, so we can get them.
+        wantedWeight      = 0.0
+        respectWeight     = 1.0
+        moneyWeight       = 0.0
+        reputationWeight  = 0.0
+        warfareWeight     = 0.0
+      }
+    }
+    else
+    {
+      //Manage our wanted level.
+      wantedWeight      = 1.0
+      respectWeight     = 0.0
+      moneyWeight       = 0.0
+      reputationWeight  = 0.0
+      warfareWeight     = 0.0
+    }
+  }
+  
 
   //Set priorities
     let gangPriorityData = new GangPriorityData( 
       wantedWeight, 
       respectWeight, 
       moneyWeight, 
-      reputationWeight
+      reputationWeight,
+      warfareWeight
       )
 
   return gangPriorityData
@@ -705,8 +713,28 @@ function DetermineGangTaskValueBounds( taskStatsArray )
   return gangTaskValueBounds
 }
 
-function DeterminePriorityForTask( gangPriorityData, taskStats, gangTaskValueBounds )
+function DeterminePriorityForTask( gangPriorityData, taskStats, gangTaskValueBounds, territoryWarfareEngaged )
 {
+
+  //Gang warfare takes special priority.
+  if ( gangPriorityData.warfareWeight > 0 )
+  {
+    if ( territoryWarfareEngaged )
+    {
+      if ( taskStats.name == "Territory Warfare" )
+        return new GangTaskPriorityData( taskStats, 1.0 )
+      else
+        return new GangTaskPriorityData( taskStats, 0.0 )
+    }
+    else
+    {
+      if ( taskStats.name == "Train Combat" )
+        return new GangTaskPriorityData( taskStats, 1.0 )
+      else
+        return new GangTaskPriorityData( taskStats, 0.0 )
+    }
+  }
+
   const normalizedWanted      = ( taskStats.baseWanted / gangTaskValueBounds.highestWanted )
   const normalizedRespect     = ( taskStats.baseRespect / gangTaskValueBounds.highestRespect )
   const normalizedMoney       = ( taskStats.baseMoney / gangTaskValueBounds.highestMoney )
