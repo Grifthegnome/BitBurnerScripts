@@ -1,6 +1,6 @@
 import { KillDuplicateScriptsOnHost } from "utility.js"
 
-const HACKNET_INCOME_DATA_FILENAME = "hacknet_income.txt"
+const HACKNET_INCOME_DATA_FILENAME = "hacknet_spend.txt"
 
 /** @param {NS} ns */
 export async function main(ns) 
@@ -73,8 +73,8 @@ export async function main(ns)
     {
       if ( ns.hacknet.getPurchaseNodeCost() <= spendFrac )
       {
-        ns.hacknet.purchaseNode()
         totalSpend += ns.hacknet.getPurchaseNodeCost()
+        ns.hacknet.purchaseNode()
         continue
       }
     }
@@ -93,8 +93,8 @@ export async function main(ns)
 
         if ( levelUpgradeCost <= spendFrac )
         {
-          ns.hacknet.upgradeLevel( i, 1 )
           totalSpend += levelUpgradeCost
+          ns.hacknet.upgradeLevel( i, 1 )
           purchasedUpgrade = true
           break
         }          
@@ -107,8 +107,8 @@ export async function main(ns)
 
         if ( ramUpgradeCost <= spendFrac )
         {
-          ns.hacknet.upgradeRam( i, 1 )
           totalSpend += ramUpgradeCost
+          ns.hacknet.upgradeRam( i, 1 )
           purchasedUpgrade = true
           break
         }
@@ -121,8 +121,8 @@ export async function main(ns)
 
         if ( coreUpgradeCost <= spendFrac )
         {
-          ns.hacknet.upgradeCore( i, 1 )
           totalSpend += coreUpgradeCost
+          ns.hacknet.upgradeCore( i, 1 )
           purchasedUpgrade = true
           break
         }
