@@ -28,6 +28,25 @@ function GangMemberTaskHeuristic( heuristic, memberInfo )
   this.memberInfo = memberInfo
 }
 
+function GangEquipmentData( name, stats, tags )
+{
+  this.name     = name
+  this.stats    = stats
+  this.tags     = tags
+
+  const statKeys = Object.keys( stats )
+
+  let statTotal = 0
+  for ( let i = 0; i < statKeys.length; i++ )
+  {
+    const key = statKeys[i]
+    statTotal += stats[key]
+  }
+
+  this.upgradeValue = statTotal
+}
+
+const GANG_MEMBER_EQUIPMENT_UPGRADE_MAX_ACCOUNT_SPEND_FRAC = 0.01
 const GANG_MEMBER_STEPDOWN_DBOUNCE = 60000
 const DEBUG_PRINT_GANG_MANAGER = false
 
@@ -80,6 +99,7 @@ export async function main(ns)
   }
 
   const gangTaskValueBounds = DetermineGangTaskValueBounds( taskStatsArray )
+  const equipmentTableHash = BuildGangEquipmentTables( ns )
 
   let gangMemberTaskPriorityHash = {}
   let gangMemberPreviousTaskHash = {}
@@ -135,31 +155,6 @@ export async function main(ns)
         }
       }
     }
-
-    /*
-    For now, we're gonna manage a hacking gang.
-    We want everyone to do ethical hacking by default.
-
-    Depending on needs and what we can get away with, will assign the highest skill hacker
-    to tasks we need them to do, always trying to keep wanted penalty low, and wanted level trending
-    downward.
-
-    We need to decide how we split between tasks that earn reputation and tasks that earn money.
-
-    1. Recruit any new gang members we can recruit, assign them to ethical hacking.
-    2. Sort our current gang members based on relevant info, we may need to sort from lowest skill to highest, so that we assign 
-    easier jobs to weaker members first, then see what headroom we have for more aggressive actions.
-
-    3. We need to determine which aggressive actions we'd like to perform, and then find the best
-    member for that job.
-
-    Notes: Before we have max members, we should prioritize respect, after we have max members,
-    we should prioritize faction rep and money.
-
-    As long as wantedLevelGainDeltaTrend is trending negative or wanted gain is below 0, we should
-    be ok.
-
-    */
 
     const gangPriorityData = DetermineGangPriority( ns, idealPriority, gangInfo.faction, currentWantedGain, wantedLevelGainDeltaTrend, moneyDeltaTrend, hasMaxMembers )
 
@@ -349,18 +344,36 @@ export async function main(ns)
     }
 
     //Handle Gang Ascension
+    if ( !gangInfo.territoryWarfareEngaged ) 
+    {
+      for ( let i = 0; i < memberInfoArray.length; i++ )
+      {
+        const memberInfo = memberInfoArray[i]
+        const ascensionResult = ns.gang.getAscensionResult( memberInfo.name )
+        if ( ascensionResult != undefined )
+        {
+          //Only ascend one gang member per gang tick.
+          AttemptGangMemberAscension( ns, memberInfo.name, ascensionResult )
+          break
+        }
+      }
+    }
+    
+    const prioritizedEquipmentPurchaseList = PrioritizeEquipmentPurchaseTable( equipmentTableHash, gangInfo.territoryWarfareEngaged )
+
+    debugger
+
+    //Note: All non-augment upgrades are lost when gang member ascends, factor this into spend.
+
+    //Note: Currently, whether the weakest gang members get gear upgrades first or the best get gear first depends on if the gang is prioritizing hostile actions or wanted reduction.
+
+    //Handle Gang Upgrades
     for ( let i = 0; i < memberInfoArray.length; i++ )
     {
       const memberInfo = memberInfoArray[i]
-
-      const ascensionResult = ns.gang.getAscensionResult( memberInfo.name )
-
-      if ( ascensionResult != undefined )
-      {        
-        AttemptGangMemberAscension( ns, memberInfo.name, ascensionResult )
-      }
+      AttemptGangMemberUpgrade( ns, memberInfo, prioritizedEquipmentPurchaseList )
     }
-
+    
     lastWantedLevelGain = currentWantedGain
     lastMoneyAvailable = currentMoneyAvailable
 
@@ -394,6 +407,169 @@ function AttemptGangMemberAscension( ns, memberName, ascensionResult )
     ns.tprint( "Ascending Member " + memberName )
     ns.gang.ascendMember( memberName )
   }
+}
+
+function BuildGangEquipmentTables( ns )
+{
+  let equipmentTableHash = {}
+  const equipmentNames = ns.gang.getEquipmentNames()
+
+  for ( let i = 0; i < equipmentNames.length; i++ )
+  {
+    const equipmentName = equipmentNames[i]
+    const equipmentType = ns.gang.getEquipmentType( equipmentName )
+    const equipmentStats = ns.gang.getEquipmentStats( equipmentName )
+
+    if ( equipmentType in equipmentTableHash )
+    {
+      const equipmentTags = DetermineEquipmentTags( equipmentStats )
+      const equipmentEntry = new GangEquipmentData( equipmentName, equipmentStats, equipmentTags )
+      equipmentTableHash[equipmentType].push( equipmentEntry )
+    }
+    else
+    {
+      const equipmentTags = DetermineEquipmentTags( equipmentStats )
+      const equipmentEntry = new GangEquipmentData( equipmentName, equipmentStats, equipmentTags )
+      let equipmentTypeArray = Array( equipmentEntry )
+      equipmentTableHash[equipmentType] = equipmentTypeArray
+    }
+  }  
+
+  return equipmentTableHash
+
+}
+
+function DetermineEquipmentTags( equipmentStats )
+{
+  let tags = Array()
+
+  if ( "str" in equipmentStats || "def" in equipmentStats || "dex" in equipmentStats || "agi" in equipmentStats )
+    tags.push( "combat" )
+
+  if ( "hack" in equipmentStats || "cha" in equipmentStats )
+    tags.push( "hacking" ) 
+
+  return tags
+}
+
+function PrioritizeEquipmentPurchaseTable( equipmentTableHash, territoryWarfareEngaged )
+{
+  /*
+    if we are engaged in territory warfare, buy combat augments, weapons, armor first, otherwise focus on hacking gear.
+
+    Prioritize augments first, because they persist through ascention.
+
+    We should prioritize equipment that gives more buffs over lower buffs.
+  */
+
+  let equipmentCategoryOrder
+  let equipmentTagOrder
+  if ( territoryWarfareEngaged )
+  {
+    equipmentCategoryOrder = [ "Augmentation", "Weapon", "Armor", "Vehicle", "Rootkit" ]
+    equipmentTagOrder = [ "combat", "hacking" ]
+  }
+  else
+  {
+    equipmentCategoryOrder = [ "Augmentation", "Rootkit", "Vehicle", "Weapon", "Armor" ]
+    equipmentTagOrder = [ "hacking", "combat" ]
+  }
+    
+  let masterHackingEquipmentList  = Array()
+  let masterCombatEquipmentList   = Array()
+
+  for ( let i = 0; i < equipmentCategoryOrder.length; i++ )
+  {
+    const currentCategory     = equipmentCategoryOrder[i]
+    const equipmentInCategory = equipmentTableHash[ currentCategory ]
+
+    let localHackingEquipmentList = Array()
+    let localCombatEquipmentList  = Array()
+
+    for ( let j = 0; j < equipmentInCategory.length; j++ )
+    {
+      const equipmentEntry = equipmentInCategory[j]
+
+      for ( let tagIndex = 0; tagIndex < equipmentTagOrder.length; tagIndex++ )
+      {
+        const currentTag = equipmentTagOrder[tagIndex]
+
+        if ( equipmentEntry.tags.includes( currentTag ) )
+        {
+          if ( currentTag == "hacking" )
+          {
+            localHackingEquipmentList.push( equipmentEntry )
+            break
+          }
+          else if ( currentTag == "combat" )
+          {
+            localCombatEquipmentList.push( equipmentEntry )
+            break
+          }
+        }
+      }
+    }
+
+    localHackingEquipmentList.sort( (entryA, entryB) => entryB.upgradeValue - entryA.upgradeValue )
+    localCombatEquipmentList.sort( (entryA, entryB) => entryB.upgradeValue - entryA.upgradeValue )
+
+    for ( let tagIndex = 0; tagIndex < equipmentTagOrder.length; tagIndex++ )
+    {
+      const currentTag = equipmentTagOrder[tagIndex]
+      if ( currentTag == "hacking" )
+        masterHackingEquipmentList = masterHackingEquipmentList.concat( localHackingEquipmentList )
+      else if ( currentTag == "combat" )
+        masterCombatEquipmentList = masterCombatEquipmentList.concat( localCombatEquipmentList )
+    }
+  }
+
+  let finalEquipmentList = Array()
+  for ( let tagIndex = 0; tagIndex < equipmentTagOrder.length; tagIndex++ )
+  {
+    const currentTag = equipmentTagOrder[tagIndex]
+    if ( currentTag == "hacking" )
+    {
+      finalEquipmentList = masterHackingEquipmentList.concat( masterCombatEquipmentList )
+      break
+    }
+    else if ( currentTag == "combat" )
+    {
+      finalEquipmentList = masterCombatEquipmentList.concat( masterHackingEquipmentList )
+      break
+    } 
+  }
+
+  return finalEquipmentList
+
+}
+
+function AttemptGangMemberUpgrade( ns, memberInfo, upgradeList )
+{
+  const maxSpend = Math.floor( ns.getServerMoneyAvailable( "home" ) * GANG_MEMBER_EQUIPMENT_UPGRADE_MAX_ACCOUNT_SPEND_FRAC )
+
+  //gangInfo.territoryWarfareEngaged
+  const memberAugmentations = memberInfo.augmentations
+
+  for ( let i = 0; i < upgradeList.length; i++ )
+  {
+    const potentialUpgrade = upgradeList[i]
+
+    if ( memberAugmentations.includes( potentialUpgrade.name ) )
+      continue
+
+    if ( ns.gang.getEquipmentCost( potentialUpgrade.name ) <= maxSpend )
+    {
+      if ( ns.gang.purchaseEquipment( memberInfo.name, potentialUpgrade.name ) )
+      {
+        ns.tprint( "Purchased " + potentialUpgrade.name + " for " + memberInfo.name )
+        //Purchase Sucessful.
+        return true
+      }
+    }
+  }
+
+  //Nothing we can currently buy
+  return false
 }
 
 function GenerateTaskHeuristicForMember( memberInfo, taskStats )
