@@ -9,6 +9,7 @@ import { GetTotalThreadsRunningScriptOnNetwork } from "utility.js"
 import { GetTotalAvailableRamOnNetwork } from "utility.js"
 import { GetMaxRamOnNetwork } from "utility.js"
 import { DistributeScriptsToNetwork } from "utility.js"
+import { KillDuplicateScriptsOnHost } from "utility.js"
 
 
 /** @param {NS} ns */
@@ -35,6 +36,7 @@ totalGrowingTime, totalWeakeningTime, hackPercentage, requiredGrowThreads,requir
 }
 
 const PIG_HUNT_DEBUG_PRINTS = false
+const GROW_THREAD_SECURITY_DELTA = 0.004 //This is a constant in the game.
 
 export async function main(ns) 
 {
@@ -58,7 +60,6 @@ export async function main(ns)
   const growScriptRam       = ns.getScriptRam( growScript )
   const shareScriptRam      = ns.getScriptRam( shareScript )
 
-
   //For now assign the farming script for the search to be the script with the highest ram cost.
   let farmingScript = hackScript
   let highestRamCost = hackScriptRam
@@ -75,28 +76,45 @@ export async function main(ns)
     highestRamCost  = growScriptRam
   }
 
-  let evaluationIncrement = ns.args[0]
+  let accountHackPercentile = 0.2
+  if ( ns.args.length > 0 )
+    accountHackPercentile = ns.args[0]
+
+  if ( accountHackPercentile > 1.0 )
+  {
+    ns.tprint( "Attempting to hack servers for more than 100% of their account money, please enter value less than or equal to 1.0" )
+    ns.tprint( "Terminating Script." )
+    return
+  }
+  else if ( accountHackPercentile <= 0.0 )
+  {
+    ns.tprint( "Attempting to hack servers for less than 1% of their account money, please enter value greater than 0.0" )
+    ns.tprint( "Terminating Script." )
+    return
+  }
 
   const parentServer = ns.getHostname()
 
   ns.print( "parent server: " + parentServer )
 
+  //Only allow one gang manager to run at a time.
+  KillDuplicateScriptsOnHost( ns, ns.getRunningScript() )
+
   while ( true )
   {
-    const maxEvaluationTime = ( evaluationIncrement * 60 ) * 1000
 
     if ( PIG_HUNT_DEBUG_PRINTS )
     {
       ns.tprint("\n")
-      ns.tprint("///////////////////////////////////////////////////////////////////////////////////")
-      ns.tprint( "Starting New Search For Servers With Less Than " + GetReadableDateDelta(maxEvaluationTime) + " Eval Time." )
-      ns.tprint("///////////////////////////////////////////////////////////////////////////////////")
+      ns.tprint("/////////////////////////////////")
+      ns.tprint( "Starting New Server Evaluation")
+      ns.tprint("/////////////////////////////////")
     }
     
 
     let searchStartTime = new Date()
 
-    let searchedServers = await ServerSearch( ns, parentServer, parentServer, maxEvaluationTime, farmingScript, weakenScript, growScript, hackScript )
+    let searchedServers = await ServerSearch( ns, parentServer, parentServer, accountHackPercentile, farmingScript, weakenScript, growScript, hackScript )
 
     let searchEndTime = new Date()
 
@@ -192,22 +210,6 @@ export async function main(ns)
       DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList )
     }
 
-    //Use a binary search to hone in on best search time.
-    if ( searchedServers.length == 0 )
-    {
-      if ( PIG_HUNT_DEBUG_PRINTS )
-        ns.tprint( "No servers found, doubling search window." )
-
-      evaluationIncrement *= 2
-    }
-    else if ( unallocatedThreadCount > 0 )
-    {
-      if ( PIG_HUNT_DEBUG_PRINTS )
-        ns.tprint( "We have unused threads after targeting all valid servers, doubling search window." )
-      
-      evaluationIncrement *= 2
-    }   
-
     if ( PIG_HUNT_DEBUG_PRINTS )
       ns.tprint( "Retrying search in " + GetReadableDateDelta( shortestHackTime + 1000 ) )
 
@@ -216,11 +218,8 @@ export async function main(ns)
   
 }
 
-async function ServerSearch( ns, targetServer, parentServer, maxEvaluationTime, farmingScript, 
-weakenScript, growScript, hackScript )
+async function ServerSearch( ns, targetServer, parentServer, accountHackPercentile, farmingScript, weakenScript, growScript, hackScript )
 {
-  const TARGET_HACK_PERCENTAGE = 0.20
-
   const myHackingLevel = ns.getHackingLevel()
 
   const connections = ns.scan( targetServer )
@@ -290,12 +289,7 @@ weakenScript, growScript, hackScript )
     const moneyAvailable    = ns.getServerMoneyAvailable( connectionName )
     const maxMoney          = ns.getServerMaxMoney( connectionName )
 
-    if ( growingTime + weakeningTime > maxEvaluationTime )
-    {
-      if ( PIG_HUNT_DEBUG_PRINTS )
-        ns.tprint( GetReadableDateDelta( growingTime + weakeningTime ) + " is longer than max evaluation time of " + GetReadableDateDelta( maxEvaluationTime ) + ", skipping " + connectionName )
-    }
-    else if ( maxMoney == 0 ) 
+    if ( maxMoney == 0 ) 
     {
       if ( PIG_HUNT_DEBUG_PRINTS )
         ns.tprint( "Server cannot hold money, skipping " + connectionName )
@@ -309,7 +303,7 @@ weakenScript, growScript, hackScript )
         const secMinLevel       = ns.getServerMinSecurityLevel( connectionName )
 
         const requiredGrowThreads   = CalculateGrowthThreads( ns, connectionName, growScript )
-        const requiredWeakenThreads = CalculateWeakenThreads( ns, connectionName, weakenScript )
+        const requiredWeakenThreads = CalculateWeakenThreads( ns, connectionName, weakenScript, requiredGrowThreads )
 
         const weakenTimeMult = Math.max( 1, requiredWeakenThreads - availableThreads )
         const postWeakenThreadRemainder = Math.max( 0, availableThreads - requiredWeakenThreads )
@@ -326,8 +320,10 @@ weakenScript, growScript, hackScript )
 
         const moneyPerHack = maxMoney * hackPercentage
 
-        //This is a dumb estimation to hack 20% of account that doesn't account for dimishing returns.
-        let threadsToHack = moneyPerHack > 0 ? Math.floor( maxMoney * TARGET_HACK_PERCENTAGE / moneyPerHack ) : 0
+        //We can run into late-game situations where our min hack percentile is larger than our target hack percentile, unless we account for this small acounts will never allocate hacking threads.
+        const targetHackPercentile = hackPercentage > accountHackPercentile ? hackPercentage : accountHackPercentile
+
+        let threadsToHack = moneyPerHack > 0 ? Math.floor( maxMoney * targetHackPercentile / moneyPerHack ) : 0
 
         //Dob't assign hacking threads if the server isn't ready to hack
         if ( securityLevel > secMinLevel || moneyAvailable < maxMoney )
@@ -386,7 +382,7 @@ weakenScript, growScript, hackScript )
       }
     }
 
-    let branchServerSearch = await ServerSearch( ns, connectionName, targetServer, maxEvaluationTime, farmingScript, weakenScript, growScript, hackScript )
+    let branchServerSearch = await ServerSearch( ns, connectionName, targetServer, accountHackPercentile, farmingScript, weakenScript, growScript, hackScript )
 
     if ( branchServerSearch.length > 0 )
       searchedServers = searchedServers.concat( branchServerSearch )
@@ -440,13 +436,15 @@ function CalculateGrowthThreads( ns, targetServer, growScript )
 
 }
 
-function CalculateWeakenThreads( ns, targetServer, weakenScript )
+function CalculateWeakenThreads( ns, targetServer, weakenScript, growThreadCount )
 {
   const minSec = ns.getServerMinSecurityLevel( targetServer )
   const curSec = ns.getServerSecurityLevel( targetServer )
-  //const maxSec = ns.getServerBaseSecurityLevel( targetServer )
+  const maxSec = ns.getServerBaseSecurityLevel( targetServer )
 
-  const securityDelta = curSec - minSec
+  const securityPostGrow = Math.min( curSec + ( GROW_THREAD_SECURITY_DELTA * growThreadCount ), maxSec )
+
+  const securityDelta = securityPostGrow - minSec
 
   const weakenThreads = Math.ceil( securityDelta / ns.weakenAnalyze(1,1) )
 
