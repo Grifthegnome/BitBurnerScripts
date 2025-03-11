@@ -424,7 +424,9 @@ function CalculateGrowthThreads( ns, targetServer, growScript )
 
   //const oldGrowthModel = (maxMoney - availableMoney) / minMoney
 
-  const growthMultiplier = 1 / ( 1 - ( (maxMoney - availableMoney) / maxMoney ) )
+  const clampedAvailable = Math.max( availableMoney, minMoney )
+
+  const growthMultiplier = 1 / ( 1 - ( (maxMoney - clampedAvailable) / maxMoney ) )
 
   if ( growthMultiplier == 0 )
     return 0  
