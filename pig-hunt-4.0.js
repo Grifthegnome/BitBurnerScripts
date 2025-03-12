@@ -31,6 +31,8 @@ totalGrowingTime, totalWeakeningTime, hackPercentage, requiredGrowThreads,requir
   this.requiredTotalThreads   = requiredGrowThreads + requiredWeakenThreads + requiredHackThreads
   this.totalTime              = hackingTime + totalGrowingTime + totalWeakeningTime
 
+  this.totalTimeDevReadable   = GetReadableDateDelta( this.totalTime )
+
   this.hackPercentage = hackPercentage
   this.heuristic      = GetTimeForEarningRatio( this.totalTime, maxMoney * hackPercentage )
 }
@@ -308,7 +310,8 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
     else
     {
       if ( myHackingLevel >= serverHackingLevel && rootAccess )
-      {              
+      {         
+
         const hackPercentage    = ns.hackAnalyze( connectionName )
         const securityLevel     = ns.getServerSecurityLevel( connectionName )
         const secMinLevel       = ns.getServerMinSecurityLevel( connectionName )
@@ -321,9 +324,9 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
         const idealWeakenThreads = CalculateWeakenThreads( ns, connectionName, weakenScript, requiredGrowThreads )
         const requiredWeakenThreads = idealWeakenThreads >= availableThreads ? threadShortageFallback : idealWeakenThreads
 
-        const weakenTimeMult = Math.max( 1, idealWeakenThreads - availableThreads )
-        const postWeakenThreadRemainder = Math.max( 0, availableThreads - requiredWeakenThreads )
-        const growTimeMult   = Math.max( 1, idealGrowThreads - postWeakenThreadRemainder )
+        const weakenTimeMult = Math.max( 1, idealWeakenThreads / availableThreads )
+        const postWeakenThreadRemainder = Math.max( 1, availableThreads - idealWeakenThreads )
+        const growTimeMult   = Math.max( 1, idealGrowThreads / postWeakenThreadRemainder )
 
         //Assuming we have enough threads, this would be done in parallel.
         const totalWeakeningTime  = weakeningTime * weakenTimeMult
