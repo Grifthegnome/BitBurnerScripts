@@ -14,7 +14,7 @@ const HACKNET_MAX_RETURN_ON_INVEST_HOURS = 3
 const HACKNET_INITIAL_INVESTMENT = 1000000000
 
 //The amount of money level 1 hack node generates, this can be modifed by augments over time.
-const HACKNET_BASE_PRODUCTION = 1
+const HACKNET_BASE_PRODUCTION = 0.093
 
 const DEBUG_HACKNET_ROI_PRINTS = false
 
@@ -33,9 +33,7 @@ export async function main(ns)
   //Only allow one gang manager to run at a time.
   KillDuplicateScriptsOnHost( ns, ns.getRunningScript() )
 
-  debugger
-
-  let accountPercentage = 0.01
+  let accountPercentage = 0.1
 
   if ( ns.args.length > 0 )
     accountPercentage = ns.args[0]
@@ -48,6 +46,16 @@ export async function main(ns)
   let levelIncomeData = {}
   let ramIncomeData = {}
   let coreIncomeData = {}
+
+  /*
+  //In the future we might be able to use this to build out a data table with all options to save processing power on later runs.
+  if ( ns.fileExists( "formulas.exe", "home" ) )
+  {
+    const levelUpgradeProduction  = ns.formulas.moneyGainRate( currentLevel + 1, currentRam, currentCores )
+    const ramUpgradeProduction    = ns.formulas.moneyGainRate( currentLevel, currentRam * 2, currentCores )
+    const coreUpgradeProduction   = ns.formulas.moneyGainRate( currentLevel, currentRam, coreUpgradeCost + 1 )
+  }
+  */
 
   if ( ns.fileExists( HACKNET_LEVEL_INCOME_DATA_FILENAME ) )
   {
@@ -210,23 +218,11 @@ export async function main(ns)
     //Sort from highest to lowest return on investement.
     hacknetUpgradeArray.sort( (upgradeA, upgradeB) => upgradeB.roiHeuristic - upgradeA.roiHeuristic )
 
-    for ( let hacknetUpgradeIndex = 0; hacknetUpgradeIndex < hacknetUpgradeArray.length; hacknetUpgradeIndex++ )
+    if ( hacknetUpgradeArray.length > 0 )
     {
 
-      const hacknetUpgrade = hacknetUpgradeArray[hacknetUpgradeIndex]
+      const hacknetUpgrade = hacknetUpgradeArray[ 0 ]
       const nodeStats = ns.hacknet.getNodeStats( hacknetUpgrade.hacknetIndex )
-
-      //Get Hacknode Upgrade Entry
-
-      /*
-      //In the future we might be able to use this to build out a data table with all options to save processing power on later runs.
-      if ( ns.fileExists( "formulas.exe", "home" ) )
-      {
-        const levelUpgradeProduction  = ns.formulas.moneyGainRate( currentLevel + 1, currentRam, currentCores )
-        const ramUpgradeProduction    = ns.formulas.moneyGainRate( currentLevel, currentRam * 2, currentCores )
-        const coreUpgradeProduction   = ns.formulas.moneyGainRate( currentLevel, currentRam, coreUpgradeCost + 1 )
-      }
-      */
 
       if ( hacknetUpgrade.upgradeType == "level" )
       {
@@ -257,7 +253,6 @@ export async function main(ns)
             }
 
             purchasedUpgrade = true
-            break
           }          
         }
       }
@@ -291,7 +286,6 @@ export async function main(ns)
             }
 
             purchasedUpgrade = true
-            break
           }
         }
       }
@@ -325,7 +319,6 @@ export async function main(ns)
             }
 
             purchasedUpgrade = true
-            break
           }
         }
       }
@@ -363,7 +356,6 @@ export async function main(ns)
           }
 
           purchasedUpgrade = true
-          break
         }
 
       }
