@@ -149,6 +149,11 @@ export async function main(ns)
     for ( let i = 0; i < searchedServers.length; i++  )
     {
 
+      const remainingThreadsAvailable = totalThreadsAvailable - totalThreadsAllocated
+
+      if ( remainingThreadsAvailable <= 0 )
+        break 
+
       let sortedServer = searchedServers[ i ]
 
       //Skip servers with no monatary value.
@@ -161,16 +166,29 @@ export async function main(ns)
       const scriptNameList = [ growScript, weakenScript, hackScript ]
       const scriptArgsList = [ [sortedServer.name], [sortedServer.name], [sortedServer.name] ]
 
-      const clampedGrowThreads    = sortedServer.requiredGrowThreads
-      const clampedWeakenThreads  = sortedServer.requiredWeakenThreads
-      const clampedHackThreads    = sortedServer.requiredHackThreads
+      let clampedGrowThreads    = sortedServer.requiredGrowThreads
+      let clampedWeakenThreads  = sortedServer.requiredWeakenThreads
+      let clampedHackThreads    = sortedServer.requiredHackThreads
+
+      //If we don't have enough threads, we want to scale down our thread requirements by a uniform scalar so that we still run some of each of our required threads.
+      if ( sortedServer.requiredTotalThreads > remainingThreadsAvailable )
+      {
+        const threadsNeededScalar = remainingThreadsAvailable / sortedServer.requiredTotalThreads
+        clampedGrowThreads    = Math.round( clampedGrowThreads * threadsNeededScalar )
+        clampedWeakenThreads  = Math.round( clampedWeakenThreads * threadsNeededScalar )
+        clampedHackThreads    = Math.round( clampedHackThreads * threadsNeededScalar )
+
+        const postScaleTotalThreadsNeeded  = clampedWeakenThreads + clampedGrowThreads + clampedHackThreads
+
+        if ( postScaleTotalThreadsNeeded > remainingThreadsAvailable )
+          debugger
+      } 
 
       const threadCountList = [ clampedGrowThreads, clampedWeakenThreads, clampedHackThreads ]
     
-      const totalThreadsNeeded  = clampedWeakenThreads + clampedGrowThreads + clampedHackThreads
       const threadsAllocated    = DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList )
         
-      if ( threadsAllocated <= 0 && totalThreadsNeeded > 0 )
+      if ( threadsAllocated <= 0 && sortedServer.requiredTotalThreads > 0 )
         break
 
       const hackingTime       = ns.getHackTime( sortedServer.name )
@@ -316,17 +334,12 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
         const securityLevel     = ns.getServerSecurityLevel( connectionName )
         const secMinLevel       = ns.getServerMinSecurityLevel( connectionName )
 
-        const threadShortageFallback = availableThreads > 1 ? Math.floor( availableThreads / 2 ) : 1
+        const requiredGrowThreads   = CalculateGrowthThreads( ns, connectionName, growScript )
+        const requiredWeakenThreads = CalculateWeakenThreads( ns, connectionName, weakenScript, requiredGrowThreads )
 
-        const idealGrowThreads = CalculateGrowthThreads( ns, connectionName, growScript )
-        const requiredGrowThreads   = idealGrowThreads >= availableThreads ? threadShortageFallback : idealGrowThreads
-        
-        const idealWeakenThreads = CalculateWeakenThreads( ns, connectionName, weakenScript, requiredGrowThreads )
-        const requiredWeakenThreads = idealWeakenThreads >= availableThreads ? threadShortageFallback : idealWeakenThreads
-
-        const weakenTimeMult = Math.max( 1, idealWeakenThreads / availableThreads )
-        const postWeakenThreadRemainder = Math.max( 1, availableThreads - idealWeakenThreads )
-        const growTimeMult   = Math.max( 1, idealGrowThreads / postWeakenThreadRemainder )
+        const weakenTimeMult = Math.round( requiredWeakenThreads / availableThreads )
+        const postWeakenThreadRemainder = Math.max( 1, availableThreads - requiredWeakenThreads )
+        const growTimeMult   = Math.round( requiredGrowThreads / postWeakenThreadRemainder )
 
         //Assuming we have enough threads, this would be done in parallel.
         const totalWeakeningTime  = weakeningTime * weakenTimeMult
