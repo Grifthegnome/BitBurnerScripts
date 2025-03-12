@@ -13,6 +13,9 @@ const HACKNET_MAX_RETURN_ON_INVEST_HOURS = 3
 //How much money we are willing to invest up front, before we start to care about return on investment.
 const HACKNET_INITIAL_INVESTMENT = 1000000000
 
+//The amount of money level 1 hack node generates, this can be modifed by augments over time.
+const HACKNET_BASE_PRODUCTION = 1
+
 const DEBUG_HACKNET_ROI_PRINTS = false
 
 function HacknetUpgradeData( hacknetIndex, upgradeType, postUpgradeValue, roiHeuristic, upgradeCost )
@@ -163,9 +166,9 @@ export async function main(ns)
       if ( nextCores in coreIncomeData )
         coreUpgradeProductionMultiplier = coreIncomeData[ nextCores ]
 
-      const postLevelUpgradeProduction  = currentProduction * levelUpgradeProductionMultiplier
-      const postRamUpgradeProduction    = currentProduction * ramUpgradeProductionMultiplier
-      const postCoresUpgradeProduction  = currentProduction * coreUpgradeProductionMultiplier
+      const postLevelUpgradeProduction  = currentProduction - ( currentProduction * levelUpgradeProductionMultiplier )
+      const postRamUpgradeProduction    = currentProduction - ( currentProduction * ramUpgradeProductionMultiplier )
+      const postCoresUpgradeProduction  = currentProduction - ( currentProduction * coreUpgradeProductionMultiplier )
 
       const levelUpgradeROI = isFinite(levelUpgradeCost) ? postLevelUpgradeProduction / levelUpgradeCost : -1
       const ramUpgradeROI   = isFinite(ramUpgradeCost)   ? postRamUpgradeProduction / ramUpgradeCost : -1
@@ -190,6 +193,20 @@ export async function main(ns)
       }
     }
     
+    //Push a purchase upgrade onto the stack.
+    if ( ns.hacknet.maxNumNodes() > nodeCount )
+    {
+      const nextHackNodePurchaseCost = ns.hacknet.getPurchaseNodeCost()
+
+      const postPurchaseUpgradeProduction = HACKNET_BASE_PRODUCTION
+
+      const purchaseUpgradeROI = isFinite(nextHackNodePurchaseCost)  ? postPurchaseUpgradeProduction / nextHackNodePurchaseCost : -1
+
+      const purchaseUpgradeData = new HacknetUpgradeData( nodeCount - 1, "purchase", nodeCount, purchaseUpgradeROI, nextHackNodePurchaseCost )
+      hacknetUpgradeArray.push( purchaseUpgradeData )
+
+    }
+
     //Sort from highest to lowest return on investement.
     hacknetUpgradeArray.sort( (upgradeA, upgradeB) => upgradeB.roiHeuristic - upgradeA.roiHeuristic )
 
@@ -312,44 +329,45 @@ export async function main(ns)
           }
         }
       }
-    }
 
-    //We don't need to buy any new hack nodes if we made a purchase this cycle.
-    if ( purchasedUpgrade )
-      continue
-
-    //We need to determine a good way to know when to buy a new node, likely with a "purchase" upgrade type.
-    if ( ns.hacknet.maxNumNodes() > nodeCount )
-    {
-      if ( ns.hacknet.getPurchaseNodeCost() <= spendFrac )
+      if ( hacknetUpgrade.upgradeType == "purchase" )
       {
-        totalSpend += ns.hacknet.getPurchaseNodeCost()
-        const newNodeIndex = ns.hacknet.purchaseNode()
-        const newNodeStats = ns.hacknet.getNodeStats( newNodeIndex )
 
-        if ( !(newNodeStats.level in levelIncomeData) )
-        {      
-          levelIncomeData[ newNodeStats.level ] = 0
-          const jsonString = JSON.stringify( levelIncomeData )
-          await ns.write( HACKNET_LEVEL_INCOME_DATA_FILENAME, jsonString, "w" )
+        upgradesRemaining = true
+
+        if ( hacknetUpgrade.upgradeCost <= spendFrac )
+        {
+          totalSpend += ns.hacknet.getPurchaseNodeCost()
+          const newNodeIndex = ns.hacknet.purchaseNode()
+          const newNodeStats = ns.hacknet.getNodeStats( newNodeIndex )
+
+          if ( !(newNodeStats.level in levelIncomeData) )
+          {      
+            levelIncomeData[ newNodeStats.level ] = 0
+            const jsonString = JSON.stringify( levelIncomeData )
+            await ns.write( HACKNET_LEVEL_INCOME_DATA_FILENAME, jsonString, "w" )
+          }
+
+          if ( !(newNodeStats.ram in ramIncomeData) )
+          {            
+            ramIncomeData[ newNodeStats.ram ] = 0
+            const jsonString = JSON.stringify( ramIncomeData )
+            await ns.write( HACKNET_RAM_INCOME_DATA_FILENAME, jsonString, "w" )
+          }
+
+          if ( !(newNodeStats.cores in coreIncomeData) )
+          {            
+            coreIncomeData[ newNodeStats.cores ] = 0
+            const jsonString = JSON.stringify( coreIncomeData )
+            await ns.write( HACKNET_CORES_INCOME_DATA_FILENAME, jsonString, "w" )
+          }
+
+          purchasedUpgrade = true
+          break
         }
 
-        if ( !(newNodeStats.ram in ramIncomeData) )
-        {            
-          ramIncomeData[ newNodeStats.ram ] = 0
-          const jsonString = JSON.stringify( ramIncomeData )
-          await ns.write( HACKNET_RAM_INCOME_DATA_FILENAME, jsonString, "w" )
-        }
-
-        if ( !(newNodeStats.cores in coreIncomeData) )
-        {            
-          coreIncomeData[ newNodeStats.cores ] = 0
-          const jsonString = JSON.stringify( coreIncomeData )
-          await ns.write( HACKNET_CORES_INCOME_DATA_FILENAME, jsonString, "w" )
-        }
-
-        continue
       }
+
     }
 
     if ( !purchasedUpgrade && !upgradesRemaining && ns.hacknet.maxNumNodes() <= nodeCount )
