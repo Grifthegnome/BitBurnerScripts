@@ -156,16 +156,16 @@ export async function main(ns)
       if ( sortedServer.requiredTotalThreads == 0 )
         continue
 
-      const scriptNameList = [ weakenScript, growScript, hackScript ]
+      const scriptNameList = [ growScript, weakenScript, hackScript ]
       const scriptArgsList = [ [sortedServer.name], [sortedServer.name], [sortedServer.name] ]
 
       const clampedGrowThreads    = sortedServer.requiredGrowThreads
-      const clampodWeakenThreads  = sortedServer.requiredWeakenThreads
+      const clampedWeakenThreads  = sortedServer.requiredWeakenThreads
       const clampedHackThreads    = sortedServer.requiredHackThreads
 
-      const threadCountList = [ clampodWeakenThreads, clampedGrowThreads, clampedHackThreads ]
+      const threadCountList = [ clampedGrowThreads, clampedWeakenThreads, clampedHackThreads ]
     
-      const totalThreadsNeeded  = clampodWeakenThreads + clampedGrowThreads + clampedHackThreads
+      const totalThreadsNeeded  = clampedWeakenThreads + clampedGrowThreads + clampedHackThreads
       const threadsAllocated    = DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList )
         
       if ( threadsAllocated <= 0 && totalThreadsNeeded > 0 )
@@ -236,6 +236,10 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
 
   //Get availble threads.
   const availableThreads = GetTotalAvailableThreadsForScript( ns, "home", "home", farmingScript )
+
+  //If we don't have any free threads, don't bother running a ton of logic.
+  if ( availableThreads == 0 )
+    return searchedServers 
 
   for( var i = 0; i < connections.length; i++ )
   {
@@ -309,12 +313,17 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
         const securityLevel     = ns.getServerSecurityLevel( connectionName )
         const secMinLevel       = ns.getServerMinSecurityLevel( connectionName )
 
-        const requiredGrowThreads   = CalculateGrowthThreads( ns, connectionName, growScript )
-        const requiredWeakenThreads = CalculateWeakenThreads( ns, connectionName, weakenScript, requiredGrowThreads )
+        const threadShortageFallback = availableThreads > 1 ? Math.floor( availableThreads / 2 ) : 1
 
-        const weakenTimeMult = Math.max( 1, requiredWeakenThreads - availableThreads )
+        const idealGrowThreads = CalculateGrowthThreads( ns, connectionName, growScript )
+        const requiredGrowThreads   = idealGrowThreads >= availableThreads ? threadShortageFallback : idealGrowThreads
+        
+        const idealWeakenThreads = CalculateWeakenThreads( ns, connectionName, weakenScript, requiredGrowThreads )
+        const requiredWeakenThreads = idealWeakenThreads >= availableThreads ? threadShortageFallback : idealWeakenThreads
+
+        const weakenTimeMult = Math.max( 1, idealWeakenThreads - availableThreads )
         const postWeakenThreadRemainder = Math.max( 0, availableThreads - requiredWeakenThreads )
-        const growTimeMult   = Math.max( 1, requiredGrowThreads - postWeakenThreadRemainder )
+        const growTimeMult   = Math.max( 1, idealGrowThreads - postWeakenThreadRemainder )
 
         //Assuming we have enough threads, this would be done in parallel.
         const totalWeakeningTime  = weakeningTime * weakenTimeMult
@@ -451,7 +460,10 @@ function CalculateWeakenThreads( ns, targetServer, weakenScript, growThreadCount
   const curSec = ns.getServerSecurityLevel( targetServer )
   const maxSec = ns.getServerBaseSecurityLevel( targetServer )
 
-  const securityPostGrow = Math.min( curSec + ( GROW_THREAD_SECURITY_DELTA * growThreadCount ), maxSec )
+  //There are cases when the game starts, where a server can have a starting security value that is greater than it's max value, this covers that case.
+  const highestSecurityVal = curSec > maxSec ? curSec : maxSec
+
+  const securityPostGrow = Math.min( curSec + ( GROW_THREAD_SECURITY_DELTA * growThreadCount ), highestSecurityVal )
 
   const securityDelta = securityPostGrow - minSec
 
