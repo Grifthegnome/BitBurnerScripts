@@ -57,6 +57,18 @@ export async function main(ns)
   }
   */
 
+  //Don't start running hacknet purchases until we have enough servers.
+  let i = ns.getPurchasedServers().length;
+  while (i < ns.getPurchasedServerLimit()) 
+  {
+    await ns.sleep( 1000 )
+    i = ns.getPurchasedServers().length;
+  }
+
+    // Continuously try to purchase servers until we've reached the maximum
+    // amount of servers
+    
+
   if ( ns.fileExists( HACKNET_LEVEL_INCOME_DATA_FILENAME ) )
   {
     const jsonString = ns.read( HACKNET_LEVEL_INCOME_DATA_FILENAME )
