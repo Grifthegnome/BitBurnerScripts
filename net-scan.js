@@ -12,6 +12,8 @@ export async function main(ns)
 
   const scanData = ScanNetLayer( ns, "home", "home", 0, "" )
 
+  debugger
+
   const rootPercent     = Math.floor( ( scanData.rootCount / scanData.serverCount )     * 100 )
   const hackablePrecent = Math.floor( ( scanData.hackableCount / scanData.serverCount ) * 100 )
   const backdoorPercent = Math.floor( ( scanData.backdoorCount / scanData.serverCount ) * 100 )
@@ -43,9 +45,15 @@ function ScanNetLayer( ns, hostServer, parentServer, searchDepth, priorString )
   let lastPassAlongString = priorString
   let depthString = ""
   
-  if( searchDepth == 1 )
+  if( searchDepth == 0 )
   {
-    depthString = "|---"
+    depthString = "|"
+    passAlongString += "|  "
+    lastPassAlongString += "   "
+  }
+  else if( searchDepth == 1 )
+  {
+    depthString = "|  "
     passAlongString += "|  "
     lastPassAlongString += "   "
   }
@@ -100,7 +108,7 @@ function ScanNetLayer( ns, hostServer, parentServer, searchDepth, priorString )
       if ( hostScan[ hostScan.length - 1 ] == currentConnection )
       {
         const serverDetail = lastPassAlongString +
-        "|    Org: " + serverInfo.organizationName +
+        "|  Org: " + serverInfo.organizationName +
         " @" + serverInfo.ip +
         " | Root: " + serverInfo.hasAdminRights +
         " | Hackable: " + canHack +
@@ -112,7 +120,7 @@ function ScanNetLayer( ns, hostServer, parentServer, searchDepth, priorString )
       else
       {
         const serverDetail = passAlongString +
-        "|    Org: " + serverInfo.organizationName +
+        "|  Org: " + serverInfo.organizationName +
         " @" + serverInfo.ip +
         " | Root: " + serverInfo.hasAdminRights +
         " | Hackable: " + canHack +
@@ -129,7 +137,7 @@ function ScanNetLayer( ns, hostServer, parentServer, searchDepth, priorString )
       if ( i == connections.length - 1 )
       {
         const serverDetail = lastPassAlongString +
-        "     Org: " + serverInfo.organizationName +
+        "  Org: " + serverInfo.organizationName +
         " @" + serverInfo.ip +
         " | Root: " + serverInfo.hasAdminRights +
         " | Hackable: " + canHack +
@@ -142,7 +150,7 @@ function ScanNetLayer( ns, hostServer, parentServer, searchDepth, priorString )
       else
       {
         const serverDetail = passAlongString +
-        "     Org: " + serverInfo.organizationName +
+        "  Org: " + serverInfo.organizationName +
         " @" + serverInfo.ip +
         " | Root: " + serverInfo.hasAdminRights +
         " | Hackable: " + canHack +
