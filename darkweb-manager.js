@@ -1,8 +1,22 @@
 /** @param {NS} ns */
 export async function main(ns) 
 {
-
-  debugger
+  if ( !(ns.singularity) )
+  {
+    ns.tprint( "You don't have access to the singularity API." )
+    ns.tprint( "Terminating script." )
+    return
+  }
+  
+  //Not a complete list, only the ones we care about and haven't replaced with our own scripts.
+  const darkwebPrograms = [ 
+    "BruteSSH.exe",
+    "FTPCrack.exe",
+    "relaySMTP.exe",
+    "HTTPWorm.exe",
+    "SQLInject.exe",
+    "Formulas.exe"
+    ]
 
   while ( true )
   {
@@ -10,10 +24,9 @@ export async function main(ns)
     const availableFunds = ns.getServerMoneyAvailable( "home" )
     let hasAllPrograms = true
 
-
     if ( ns.singularity.purchaseTor() )
     {
-      const darkwebPrograms = ns.singularity.getDarkwebPrograms()
+      //const darkwebPrograms = ns.singularity.getDarkwebPrograms()
 
       for ( let i = 0; i < darkwebPrograms.length; i++ )
       {
