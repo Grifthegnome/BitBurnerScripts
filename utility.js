@@ -543,6 +543,59 @@ export function GetMaxRamOnNetwork( ns, hostServer, parentServer )
 
 }
 
+export function GetCompanyList()
+{  
+  const companyList = [
+    "AeroCorp",
+    "Alpha Enterprises",
+    "Bachman & Associates",
+    "Blade Industries",
+    "Central Intelligence Agency",
+    "Carmichael Security",
+    "Clarke Incorporated",
+    "CompuTek",
+    "DefComm",
+    "DeltaOne",
+    "ECorp",
+    "FoodNStuff",
+    "Four Sigma",
+    "Fulcrum Technologies",
+    "Galactic Cybersystems",
+    "Global Pharmaceuticals",
+    "Helios Labs",
+    "Icarus Microsystems",
+    "Joe's Guns",
+    "KuaiGong International",
+    "LexoCorp",
+    "MegaCorp",
+    "National Security Agency",
+    "NWO",
+    "NetLink Technologies",
+    "Noodle Bar",
+    "Nova Medical",
+    "Omega Software",
+    "OmniTek Incorporated",
+    "Omnia Cybersystems",
+    "Aevum Police Headquarters",
+    "Rho Construction",
+    "Solaris Space Systems",
+    "Storm Technologies",
+    "SysCore Securities",
+    "Universal Energy",
+    "VitaLife",
+    "Watchdog Security",
+    ]
+
+  return companyList
+
+}
+
+export function ServerIsPersonalServer( ns, serverName )
+{
+  const personalServers = ns.getPurchasedServers()
+  return personalServers.includes( serverName )
+}
+
 export function BruteForceServer( ns, serverName )
 {
   //Brute Force Ports
