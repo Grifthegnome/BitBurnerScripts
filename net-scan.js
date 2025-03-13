@@ -53,7 +53,7 @@ function ScanNetLayer( ns, hostServer, parentServer, searchDepth, priorString )
   }
   else if( searchDepth == 1 )
   {
-    depthString = "|  "
+    depthString = "|  |--"
     passAlongString += "|  "
     lastPassAlongString += "   "
   }
