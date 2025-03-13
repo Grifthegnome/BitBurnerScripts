@@ -255,6 +255,43 @@ export function PauseAllServersTargetingGivenServer( ns, hostServer, parentServe
 
 }
 
+export function FindServerAndBackTrace( ns, hostServer, parentServer, serverToFind )
+  {
+    //This should be called with "home" as the starting server by the caller.
+    const connections = ns.scan( hostServer )
+  
+    let backtrackStack = Array()
+  
+    for ( let i = 0; i < connections.length; i++ )
+    {
+      const currentConnection = connections[ i ]
+  
+      if ( currentConnection == parentServer )
+        continue
+  
+      if ( currentConnection == serverToFind )
+      {
+        backtrackStack.push( currentConnection )
+  
+        return backtrackStack
+      }
+      
+      //Search processes in sub-networks.
+      const searchResults = FindServerAndBackTrace( ns, currentConnection, hostServer, serverToFind )
+    
+      if ( searchResults.length > 0 )
+      {
+        backtrackStack.push( currentConnection )
+        backtrackStack = backtrackStack.concat( searchResults )
+  
+        return backtrackStack
+      }
+    
+    }
+  
+    return backtrackStack
+  }
+
 export function GetTotalAvailableThreadsForScript( ns, hostServer, parentServer, scriptName )
 {  
   const ramCost = ns.getScriptRam( scriptName )
