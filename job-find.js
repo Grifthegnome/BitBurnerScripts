@@ -74,4 +74,24 @@ export async function main(ns)
     ns.tprint( potentialJobData.jobInfo.name + " @ " + potentialJobData.companyName + " paying " + potentialJobData.jobInfo.salary )
   }
 
+  if ( potentialJobs.length > 0 )
+  {
+
+    debugger
+    const potentialJobData = potentialJobs[0]
+    let jobAquired = ns.singularity.applyToCompany( potentialJobData.companyName, potentialJobData.jobInfo.field )
+
+    while ( jobAquired != null )
+    {
+      if ( jobAquired != potentialJobData.jobInfo.name )
+      {
+        jobAquired = ns.singularity.applyToCompany( potentialJobs.companyName, potentialJobData.jobInfo.field )
+      }
+      else
+      {
+        break
+      }
+    }
+  }
+
 }
