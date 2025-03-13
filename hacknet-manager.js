@@ -210,7 +210,7 @@ export async function main(ns)
 
       const purchaseUpgradeROI = isFinite(nextHackNodePurchaseCost)  ? postPurchaseUpgradeProduction / nextHackNodePurchaseCost : -1
 
-      const purchaseUpgradeData = new HacknetUpgradeData( nodeCount - 1, "purchase", nodeCount, purchaseUpgradeROI, nextHackNodePurchaseCost )
+      const purchaseUpgradeData = new HacknetUpgradeData( nodeCount, "purchase", nodeCount, purchaseUpgradeROI, nextHackNodePurchaseCost )
       hacknetUpgradeArray.push( purchaseUpgradeData )
 
     }
@@ -222,107 +222,111 @@ export async function main(ns)
     {
 
       const hacknetUpgrade = hacknetUpgradeArray[ 0 ]
-      const nodeStats = ns.hacknet.getNodeStats( hacknetUpgrade.hacknetIndex )
 
-      if ( hacknetUpgrade.upgradeType == "level" )
+      if ( hacknetUpgrade.upgradeType != "purchase" )
       {
-        if ( isFinite( hacknetUpgrade.upgradeCost ) )
+        const nodeStats = ns.hacknet.getNodeStats( hacknetUpgrade.hacknetIndex )
+
+        if ( hacknetUpgrade.upgradeType == "level" )
         {
-
-          upgradesRemaining = true
-
-          if ( hacknetUpgrade.upgradeCost <= spendFrac )
+          if ( isFinite( hacknetUpgrade.upgradeCost ) )
           {
-            const prePurchaseProduction = nodeStats.production
-            totalSpend += hacknetUpgrade.upgradeCost
-            ns.hacknet.upgradeLevel( hacknetUpgrade.hacknetIndex, 1 )
 
-            //Write upgrade info to data table so we can use it later.
-            if ( !(hacknetUpgrade.postUpgradeValue in levelIncomeData) )
+            upgradesRemaining = true
+
+            if ( hacknetUpgrade.upgradeCost <= spendFrac )
             {
-              const postUpgradeNodeStats    = ns.hacknet.getNodeStats( hacknetUpgrade.hacknetIndex )
-              const postPurchaseProduction  = postUpgradeNodeStats.production
-              //const productionDelta         = postPurchaseProduction - prePurchaseProduction
-              
-              const upgradeProductionMultiplier = prePurchaseProduction / postPurchaseProduction
+              const prePurchaseProduction = nodeStats.production
+              totalSpend += hacknetUpgrade.upgradeCost
+              ns.hacknet.upgradeLevel( hacknetUpgrade.hacknetIndex, 1 )
 
-              levelIncomeData[ hacknetUpgrade.postUpgradeValue ] = upgradeProductionMultiplier
+              //Write upgrade info to data table so we can use it later.
+              if ( !(hacknetUpgrade.postUpgradeValue in levelIncomeData) )
+              {
+                const postUpgradeNodeStats    = ns.hacknet.getNodeStats( hacknetUpgrade.hacknetIndex )
+                const postPurchaseProduction  = postUpgradeNodeStats.production
+                //const productionDelta         = postPurchaseProduction - prePurchaseProduction
+                
+                const upgradeProductionMultiplier = prePurchaseProduction / postPurchaseProduction
 
-              const jsonString = JSON.stringify( levelIncomeData )
-              await ns.write( HACKNET_LEVEL_INCOME_DATA_FILENAME, jsonString, "w" )
-            }
+                levelIncomeData[ hacknetUpgrade.postUpgradeValue ] = upgradeProductionMultiplier
 
-            purchasedUpgrade = true
-          }          
+                const jsonString = JSON.stringify( levelIncomeData )
+                await ns.write( HACKNET_LEVEL_INCOME_DATA_FILENAME, jsonString, "w" )
+              }
+
+              purchasedUpgrade = true
+            }          
+          }
         }
-      }
 
-      if ( hacknetUpgrade.upgradeType == "ram" )
-      {
-        if ( isFinite( hacknetUpgrade.upgradeCost ) )
+        if ( hacknetUpgrade.upgradeType == "ram" )
         {
-
-          upgradesRemaining = true
-
-          if ( hacknetUpgrade.upgradeCost <= spendFrac )
+          if ( isFinite( hacknetUpgrade.upgradeCost ) )
           {
-            const prePurchaseProduction = nodeStats.production
-            totalSpend += hacknetUpgrade.upgradeCost
-            ns.hacknet.upgradeRam( hacknetUpgrade.hacknetIndex, 1 )
 
-            //Write upgrade info to data table so we can use it later.
-            if ( !(hacknetUpgrade.postUpgradeValue in ramIncomeData) )
+            upgradesRemaining = true
+
+            if ( hacknetUpgrade.upgradeCost <= spendFrac )
             {
-              const postUpgradeNodeStats    = ns.hacknet.getNodeStats( hacknetUpgrade.hacknetIndex )
-              const postPurchaseProduction  = postUpgradeNodeStats.production
-              //const productionDelta         = postPurchaseProduction - prePurchaseProduction
-              
-              const upgradeProductionMultiplier = prePurchaseProduction / postPurchaseProduction
+              const prePurchaseProduction = nodeStats.production
+              totalSpend += hacknetUpgrade.upgradeCost
+              ns.hacknet.upgradeRam( hacknetUpgrade.hacknetIndex, 1 )
 
-              ramIncomeData[ hacknetUpgrade.postUpgradeValue ] = upgradeProductionMultiplier
+              //Write upgrade info to data table so we can use it later.
+              if ( !(hacknetUpgrade.postUpgradeValue in ramIncomeData) )
+              {
+                const postUpgradeNodeStats    = ns.hacknet.getNodeStats( hacknetUpgrade.hacknetIndex )
+                const postPurchaseProduction  = postUpgradeNodeStats.production
+                //const productionDelta         = postPurchaseProduction - prePurchaseProduction
+                
+                const upgradeProductionMultiplier = prePurchaseProduction / postPurchaseProduction
 
-              const jsonString = JSON.stringify( ramIncomeData )
-              await ns.write( HACKNET_RAM_INCOME_DATA_FILENAME, jsonString, "w" )
+                ramIncomeData[ hacknetUpgrade.postUpgradeValue ] = upgradeProductionMultiplier
+
+                const jsonString = JSON.stringify( ramIncomeData )
+                await ns.write( HACKNET_RAM_INCOME_DATA_FILENAME, jsonString, "w" )
+              }
+
+              purchasedUpgrade = true
             }
+          }
+        }
+      
+        if ( hacknetUpgrade.upgradeType == "cores" )
+        {
+          if ( isFinite( hacknetUpgrade.upgradeCost ) )
+          {
 
-            purchasedUpgrade = true
+            upgradesRemaining = true
+
+            if ( hacknetUpgrade.upgradeCost <= spendFrac )
+            {
+              const prePurchaseProduction = nodeStats.production
+              totalSpend += hacknetUpgrade.upgradeCost
+              ns.hacknet.upgradeCore( hacknetUpgrade.hacknetIndex, 1 )
+
+              //Write upgrade info to data table so we can use it later.
+              if ( !(hacknetUpgrade.postUpgradeValue in coreIncomeData) )
+              {
+                const postUpgradeNodeStats    = ns.hacknet.getNodeStats( hacknetUpgrade.hacknetIndex )
+                const postPurchaseProduction  = postUpgradeNodeStats.production
+                //const productionDelta         = postPurchaseProduction - prePurchaseProduction
+                
+                const upgradeProductionMultiplier = prePurchaseProduction / postPurchaseProduction
+
+                coreIncomeData[ hacknetUpgrade.postUpgradeValue ] = upgradeProductionMultiplier
+
+                const jsonString = JSON.stringify( coreIncomeData )
+                await ns.write( HACKNET_CORES_INCOME_DATA_FILENAME, jsonString, "w" )
+              }
+
+              purchasedUpgrade = true
+            }
           }
         }
       }
       
-      if ( hacknetUpgrade.upgradeType == "cores" )
-      {
-        if ( isFinite( hacknetUpgrade.upgradeCost ) )
-        {
-
-          upgradesRemaining = true
-
-          if ( hacknetUpgrade.upgradeCost <= spendFrac )
-          {
-            const prePurchaseProduction = nodeStats.production
-            totalSpend += hacknetUpgrade.upgradeCost
-            ns.hacknet.upgradeCore( hacknetUpgrade.hacknetIndex, 1 )
-
-            //Write upgrade info to data table so we can use it later.
-            if ( !(hacknetUpgrade.postUpgradeValue in coreIncomeData) )
-            {
-              const postUpgradeNodeStats    = ns.hacknet.getNodeStats( hacknetUpgrade.hacknetIndex )
-              const postPurchaseProduction  = postUpgradeNodeStats.production
-              //const productionDelta         = postPurchaseProduction - prePurchaseProduction
-              
-              const upgradeProductionMultiplier = prePurchaseProduction / postPurchaseProduction
-
-              coreIncomeData[ hacknetUpgrade.postUpgradeValue ] = upgradeProductionMultiplier
-
-              const jsonString = JSON.stringify( coreIncomeData )
-              await ns.write( HACKNET_CORES_INCOME_DATA_FILENAME, jsonString, "w" )
-            }
-
-            purchasedUpgrade = true
-          }
-        }
-      }
-
       if ( hacknetUpgrade.upgradeType == "purchase" )
       {
 
