@@ -1,7 +1,8 @@
 import { KillDuplicateScriptsOnHost } from "utility.js"
 import { GetReadableDateDelta } from "utility.js"
 
-const HACKNET_INCOME_DATA_FILENAME = "hacknet_spend.txt"
+const HACKNET_INCOME_DATA_FILENAME        = "hacknet_spend.txt"
+const HACKNET_ROI_REPORT_DATA_FILENAME    = "hacknet_roi_report.txt"
 const HACKNET_LEVEL_INCOME_DATA_FILENAME  = "hacknet_level_income_data.txt"
 const HACKNET_RAM_INCOME_DATA_FILENAME    = "hacknet_ram_income_data.txt"
 const HACKNET_CORES_INCOME_DATA_FILENAME  = "hacknet_cores_income_data.txt"
@@ -142,6 +143,9 @@ export async function main(ns)
 
     if ( DEBUG_HACKNET_ROI_PRINTS )
       ns.tprint( "Time to ROI: " + GetReadableDateDelta( timeToROI ) )
+
+    //Write return on investment.
+    await ns.write( HACKNET_ROI_REPORT_DATA_FILENAME, "Hacknet Return on Investment In: " + GetReadableDateDelta( timeToROI ), "w" )
 
     let lockSpendingUntilROI = totalSpend > HACKNET_INITIAL_INVESTMENT ? totalSpend > totalIncome || totalSpend > currentROIValuation : false
 
