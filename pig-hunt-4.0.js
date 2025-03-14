@@ -263,9 +263,9 @@ export async function main(ns)
     }
     
     if ( PIG_HUNT_DEBUG_PRINTS )
-      ns.tprint( "Retrying search in " + GetReadableDateDelta( shortestHackTime + 1000 ) )
+      ns.tprint( "Retrying search in " + GetReadableDateDelta( shortestHackTime ) )
 
-    await ns.sleep( shortestHackTime + 1000 )
+    await ns.sleep( shortestHackTime )
   }  
   
 }
