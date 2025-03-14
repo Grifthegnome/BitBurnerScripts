@@ -1,20 +1,27 @@
+import { KillDuplicateScriptsOnHost } from "utility.js"
 
 const STOCK_SYMBOLS_DATA_FILENAME = "stock_symbols.txt"
 
-const STOCK_UPDATE_INTERVAL = 7000
-const STOCK_MIN_VAL = 0
-const STOCK_MAX_VAL = 500000
-const STOCK_GRAPH_MAX_HEIGHT = 20
-const STOCK_GRAPH_MAX_WIDTH = 200
+const STOCK_UPDATE_INTERVAL     = 5000
+const STOCK_GRAPH_MAX_HEIGHT    = 54
+const STOCK_GRAPH_MAX_WIDTH     = 200
+
+//This determines the scale of the graph using the given percentage of the starting stock price to set a maximum graph value above ane below the starting value line. 
+const STOCK_GRAPH_VALUE_RANGE_PERCENTILE = 0.1
 
 const STOCK_GRAPH_EMPTY_SYMBOL = " "
-const STOCK_GRAPH_VALUE_SYMBOL = "$"
+const STOCK_GRAPH_GAIN_SYMBOL = "$"
+const STOCK_GRAPH_LOSS_SYMBOL = "!"
+const STOCK_GRAPH_LINE_SYMBOL = "~"
 
 /** @param {NS} ns */
 export async function main(ns) 
 {
 
   debugger
+
+  //Only allow one gang manager to run at a time.
+  KillDuplicateScriptsOnHost( ns, ns.getRunningScript() )
 
   if( !ns.stock.hasWSEAccount() )
   {
@@ -71,63 +78,126 @@ export async function main(ns)
   }
 
   let emptyGraphRow = Array()
+  let baselineGraphRow = Array()
   for ( let rowIndex = 0; rowIndex < STOCK_GRAPH_MAX_WIDTH; rowIndex++ )
   {
-    const emptyRowEntry = STOCK_GRAPH_EMPTY_SYMBOL
-    emptyGraphRow.push( emptyRowEntry )
+    emptyGraphRow.push( STOCK_GRAPH_EMPTY_SYMBOL )
+    baselineGraphRow.push( STOCK_GRAPH_LINE_SYMBOL )
   }
 
   let graphHeight = Array()
   for ( let columnIndex = 0; columnIndex < STOCK_GRAPH_MAX_HEIGHT; columnIndex++ )
   {
-    const duplicateRowEntry = [ ...emptyGraphRow ]
-    graphHeight.push( duplicateRowEntry )
-  }
-
-  const stockValuePerColumn = STOCK_MAX_VAL / STOCK_GRAPH_MAX_HEIGHT
-
-  while ( true )
-  {
-    let currentPosition = 0
-    if ( targetSymbol == "all" )
+    if ( Math.round( STOCK_GRAPH_MAX_HEIGHT / 2 ) == columnIndex )
     {
-      //To Do: Get average of all stock values.
+      const duplicateRowEntry = [ ...baselineGraphRow ]
+      graphHeight.push( duplicateRowEntry )
     }
     else
     {
-      currentPosition = ns.stock.getPosition( targetSymbol )
+      const duplicateRowEntry = [ ...emptyGraphRow ]
+      graphHeight.push( duplicateRowEntry )
+    }
+    
+  }
+
+  let finalStockValueRange = 0 
+  let stockValuePerColumn = 0
+
+  let firstPrice = -1
+  let priceDelta = 0
+  let currentPrice = 0
+  while ( true )
+  {
+    if ( targetSymbol == "all" )
+    {
+      //Get average of all stock values.
+      currentPrice = GetTotalMarketPrice( ns, stockSymbols )
+      
+      if ( firstPrice == -1 )
+      {
+        firstPrice = currentPrice
+        finalStockValueRange = ( firstPrice * STOCK_GRAPH_VALUE_RANGE_PERCENTILE ) * 2
+        stockValuePerColumn = finalStockValueRange / STOCK_GRAPH_MAX_HEIGHT
+      }
+        
+
+    }
+    else
+    {
+      currentPrice = ns.stock.getPrice( targetSymbol )
+
+      if ( firstPrice == -1 )
+      {
+        firstPrice = currentPrice
+        finalStockValueRange = ( firstPrice * STOCK_GRAPH_VALUE_RANGE_PERCENTILE ) * 2
+        stockValuePerColumn = finalStockValueRange / STOCK_GRAPH_MAX_HEIGHT
+      }
+        
     }
 
-    const columnHeight  = Math.round( currentPosition / stockValuePerColumn )
-    const maxFillHeight = STOCK_GRAPH_MAX_HEIGHT - columnHeight
+    priceDelta = currentPrice - firstPrice
+
+    const columnHeight  = Math.round( priceDelta / stockValuePerColumn )
+    const startFillHeight = priceDelta > 0 ? STOCK_GRAPH_MAX_HEIGHT - (( STOCK_GRAPH_MAX_HEIGHT / 2 ) + columnHeight) : ( STOCK_GRAPH_MAX_HEIGHT / 2 ) - columnHeight
 
     for ( let columnIndex = 0; columnIndex < graphHeight.length; columnIndex++ )
     {
 
       const graphRow = graphHeight[columnIndex]
 
-      if ( maxFillHeight >= columnIndex )
+      if ( startFillHeight <= columnIndex )
       {
-        graphRow.pop()
-        graphRow.unshift(STOCK_GRAPH_VALUE_SYMBOL)
+        if ( priceDelta > 0 )
+        {
+          graphRow.pop()
+          graphRow.unshift(STOCK_GRAPH_GAIN_SYMBOL)
+        }
+        else
+        {
+          graphRow.pop()
+          graphRow.unshift(STOCK_GRAPH_LOSS_SYMBOL)
+        }
+        
       }
       else
       {
-        graphRow.pop()
-        graphRow.unshift(STOCK_GRAPH_EMPTY_SYMBOL)
+
+        if ( Math.round( STOCK_GRAPH_MAX_HEIGHT / 2 ) == columnIndex )
+        {
+          graphRow.pop()
+          graphRow.unshift(STOCK_GRAPH_LINE_SYMBOL)
+        }
+        else
+        {
+          graphRow.pop()
+          graphRow.unshift(STOCK_GRAPH_EMPTY_SYMBOL)
+        }
       }
       
+      const rowOutput = graphRow.join( "" )
+      ns.tprint( rowOutput )
+    } 
 
-      /*
-      for ( let rowIndex = 0; rowIndex < graphHeight[columnIndex].length; rowIndex++ )
-      {
-
-      }
-      */
-    }
-    
+    ns.tprint( "Symbol: " + targetSymbol + "| Price: " + currentPrice + "| Delta: " + priceDelta )
 
     await ns.sleep( STOCK_UPDATE_INTERVAL )
   }
+
+}
+
+function GetTotalMarketPrice( ns, stockSymbols )
+{
+  let totalMarketValue = 0
+
+  for ( let stockIndex = 0; stockIndex < stockSymbols.length; stockIndex++ )
+  {
+    const stockSymbol = stockSymbols[stockIndex]
+
+    totalMarketValue += ns.stock.getPrice( stockSymbol )
+
+  }
+
+  return totalMarketValue /// stockSymbols.length
 
 }
