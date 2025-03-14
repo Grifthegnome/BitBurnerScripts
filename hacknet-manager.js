@@ -11,7 +11,7 @@ const HACKNET_CORES_INCOME_DATA_FILENAME  = "hacknet_cores_income_data.txt"
 const HACKNET_MAX_RETURN_ON_INVEST_HOURS = 6
 
 //How much money we are willing to invest up front, before we start to care about return on investment.
-const HACKNET_INITIAL_INVESTMENT = 250000000
+const HACKNET_INITIAL_INVESTMENT = 5000000
 
 //The amount of money level 1 hack node generates, this can be modifed by augments over time.
 const HACKNET_BASE_PRODUCTION = 0.093
@@ -135,19 +135,21 @@ export async function main(ns)
       totalIncomeRate += nodeStats.production
     }
 
-    const maxROIIncomePossible = maxROISeconds * totalIncomeRate
-    const currentROIValuation = totalIncome + maxROIIncomePossible
+    const maxROIIncomePossibleInTimeWindow = maxROISeconds * totalIncomeRate
+    const currentROIValuation = totalIncome + maxROIIncomePossibleInTimeWindow
 
     const timeToROI = ( ( totalSpend - totalIncome ) / totalIncomeRate ) * 1000
 
     if ( DEBUG_HACKNET_ROI_PRINTS )
       ns.tprint( "Time to ROI: " + GetReadableDateDelta( timeToROI ) )
 
+    let lockSpendingUntilROI = totalSpend > HACKNET_INITIAL_INVESTMENT ? totalSpend > totalIncome || totalSpend > currentROIValuation : false
+
     //We should not buy anything if our spend is greatly exceeding our production.
     if ( totalIncome > 0 )
     {
       //Basically check to see if at the end of our designated time window, we've made any money for our investement.
-      if ( totalSpend > currentROIValuation && totalSpend > HACKNET_INITIAL_INVESTMENT )
+      if ( lockSpendingUntilROI )
       {
         continue
       }
