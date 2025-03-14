@@ -46,12 +46,12 @@ export async function main(ns)
           }
         }
       }
-    }
 
-    if ( hasAllPrograms == true )
-    {
-      ns.tprint( "All Darkweb Programs Purchased, Exiting Manager." )
-      return
+      if ( hasAllPrograms == true )
+      {
+        ns.tprint( "All Darkweb Programs Purchased, Exiting Manager." )
+        return
+      }
     }
 
     await ns.sleep( 1000 )
