@@ -391,10 +391,8 @@ export function GetAvailableServersForScript( ns, hostServer, parentServer, scri
 
 }
 
-export function AllocateThreadsForScript( ns, threadCount, scriptName, scriptArgs )
+export function AllocateThreadsForScriptToGivenServers( ns, threadCount, scriptName, scriptArgs, availableServerList )
 {
-  let availableServerList = GetAvailableServersForScript( ns, "home", "home", scriptName )
-
   availableServerList.sort( (serverDataA, serverDataB ) => ns.getServerMaxRam( serverDataA.name ) - ns.getServerMaxRam( serverDataB.name ) )
 
   let threadsAllocated = 0
@@ -436,6 +434,45 @@ export function AllocateThreadsForScript( ns, threadCount, scriptName, scriptArg
 
 }
 
+export function DistribueScriptsToHome( ns, scriptNameList, scriptArgsList, threadCountList )
+{
+
+  if ( scriptNameList.length != scriptArgsList.length && scriptNameList.length != threadCountList.length )
+    throw new Error( "scriptNameList, scriptArgsList, and threadCountList much have matching lengths." )
+
+  let totalThreadsAllocated = 0
+
+  for ( let i = 0; i < scriptNameList.length; i++ )
+  {
+
+    const scriptName  = scriptNameList[ i ]
+    const scriptArgs  = scriptArgsList[ i ]
+    const threadCount = threadCountList[ i ] 
+
+    if ( threadCount == 0 )
+      continue
+
+    let availableThreads = GetThreadCountForScript( ns, scriptName, "home" )
+
+    if ( availableThreads > 0 )
+    {
+      const homeServerData = new AvailableServerData( "home", availableThreads )
+    
+      const availableServerList = [ homeServerData ]
+
+      const threadsAllocated = AllocateThreadsForScriptToGivenServers( ns, threadCount, scriptName, scriptArgs, availableServerList )
+    
+      if ( threadsAllocated == 0 )
+        break
+
+      totalThreadsAllocated += threadsAllocated
+    }
+  }
+
+  return totalThreadsAllocated
+
+}
+
 export function DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList )
 {
   /*
@@ -461,7 +498,8 @@ export function DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, 
     if ( threadCount == 0 )
       continue
 
-    const threadsAllocated = AllocateThreadsForScript( ns, threadCount, scriptName, scriptArgs )
+    const availableServerList = GetAvailableServersForScript( ns, "home", "home", scriptName )
+    const threadsAllocated = AllocateThreadsForScriptToGivenServers( ns, threadCount, scriptName, scriptArgs, availableServerList )
     
     if ( threadsAllocated == 0 )
       break

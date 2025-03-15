@@ -5,10 +5,13 @@
 import { GetReadableDateDelta } from "utility.js"
 import { GetTotalAvailableThreadsForScript } from "utility.js"
 import { GetMaxThreadsForScript } from "utility.js"
+import { GetThreadCountForScript } from "utility.js"
+import { GetMaxThreadCountForScript } from "utility.js"
 import { GetTotalThreadsRunningScriptOnNetwork } from "utility.js"
 import { GetTotalAvailableRamOnNetwork } from "utility.js"
 import { GetMaxRamOnNetwork } from "utility.js"
 import { DistributeScriptsToNetwork } from "utility.js"
+import { DistribueScriptsToHome } from "utility.js"
 import { KillDuplicateScriptsOnHost } from "utility.js"
 
 
@@ -141,16 +144,23 @@ export async function main(ns)
       totalRequiredThreads += sortedServer.requiredTotalThreads 
     }
 
-    const maxThreadsPossible = GetMaxThreadsForScript( ns, "home", "home", farmingScript )
-    let totalThreadsAvailable = GetTotalAvailableThreadsForScript( ns, "home", "home", farmingScript )
-    let totalThreadsAllocated = 0
+    //Determine how many threads we can run on home as an overflow if needed.
+    const maxHomeThreadsPossible    = GetMaxThreadCountForScript( ns, farmingScript, "home" )
+    const totalHomeThreadsAvailable = GetThreadCountForScript( ns, farmingScript, "home" )
+
+    const minFreeThreadsFrac = Math.floor( maxHomeThreadsPossible - ( maxHomeThreadsPossible * 0.75 ) )
+    let clampedAvailableHomeThreads = totalHomeThreadsAvailable > minFreeThreadsFrac ? Math.floor( totalHomeThreadsAvailable - minFreeThreadsFrac ) : 0
+
+    const maxNetworkThreadsPossible = GetMaxThreadsForScript( ns, "home", "home", farmingScript )
+    let totalNetworkThreadsAvailable = GetTotalAvailableThreadsForScript( ns, "home", "home", farmingScript )
+    let totalNetworkThreadsAllocated = 0
 
     let shortestHackTime = 1000
 
     for ( let i = 0; i < searchedServers.length; i++  )
     {
 
-      const remainingThreadsAvailable = totalThreadsAvailable - totalThreadsAllocated
+      const remainingThreadsAvailable = totalNetworkThreadsAvailable - totalNetworkThreadsAllocated
 
       if ( remainingThreadsAvailable <= 0 )
         break 
@@ -172,23 +182,52 @@ export async function main(ns)
       let clampedHackThreads    = sortedServer.requiredHackThreads
 
       //Ensure max strength hack.
-      if ( maxThreadsPossible < clampedHackThreads )
+      if ( maxNetworkThreadsPossible < clampedHackThreads )
       {
         //we only want to hack when we can hack at full thread power, or we are using all our current resources to the best hack we can.
-        if ( maxThreadsPossible > remainingThreadsAvailable )
+        if ( maxNetworkThreadsPossible > remainingThreadsAvailable )
         {
-          //Skip all lower priorty servers till we can hack this one.
-          totalThreadsAllocated = totalThreadsAvailable
-          break
+
+          //If we can run the threads on our home server to unblock our server farm, do it.
+          if ( clampedAvailableHomeThreads >= clampedHackThreads )
+          {
+            debugger
+            const homeScriptNameList = [ hackScript ]
+            const homeScriptArgsList = [ [sortedServer.name] ]
+            const homeThreadCountList = [ clampedHackThreads ]
+
+            clampedAvailableHomeThreads -= DistribueScriptsToHome( ns, homeScriptNameList, homeScriptArgsList, homeThreadCountList )
+            continue
+          }
+          else
+          {
+            //Skip all lower priorty servers till we can hack this one.
+            totalNetworkThreadsAllocated = totalNetworkThreadsAvailable
+            break
+          }
         }
       }
       else
       {
         if ( remainingThreadsAvailable < clampedHackThreads )
         {
-          //Skip all lower priorty servers till we can hack this one.
-          totalThreadsAllocated = totalThreadsAvailable
-          break
+          //If we can run the threads on our home server to unblock our server farm, do it.
+          if ( clampedAvailableHomeThreads >= clampedHackThreads )
+          {
+            debugger
+            const homeScriptNameList = [ hackScript ]
+            const homeScriptArgsList = [ [sortedServer.name] ]
+            const homeThreadCountList = [ clampedHackThreads ]
+
+            clampedAvailableHomeThreads -= DistribueScriptsToHome( ns, homeScriptNameList, homeScriptArgsList, homeThreadCountList )
+            continue
+          }
+          else
+          {
+            //Skip all lower priorty servers till we can hack this one.
+            totalNetworkThreadsAllocated = totalNetworkThreadsAvailable
+            break
+          }
         }
       }          
 
@@ -226,10 +265,10 @@ export async function main(ns)
       if ( weakeningTime < shortestHackTime )
         shortestHackTime = weakeningTime
 
-      totalThreadsAllocated += threadsAllocated   
+      totalNetworkThreadsAllocated += threadsAllocated   
     }
 
-    const unallocatedThreadCount = totalThreadsAvailable - totalThreadsAllocated
+    const unallocatedThreadCount = totalNetworkThreadsAvailable - totalNetworkThreadsAllocated
     
     //if we have unallocated threads and we're not hacking 100% of targeted accounts.
     if ( unallocatedThreadCount > 0 && accountHackPercentile < 1.0 )
