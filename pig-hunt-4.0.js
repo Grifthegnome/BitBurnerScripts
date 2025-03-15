@@ -191,7 +191,6 @@ export async function main(ns)
           //If we can run the threads on our home server to unblock our server farm, do it.
           if ( clampedAvailableHomeThreads >= clampedHackThreads )
           {
-            debugger
             const homeScriptNameList = [ hackScript ]
             const homeScriptArgsList = [ [sortedServer.name] ]
             const homeThreadCountList = [ clampedHackThreads ]
@@ -214,7 +213,6 @@ export async function main(ns)
           //If we can run the threads on our home server to unblock our server farm, do it.
           if ( clampedAvailableHomeThreads >= clampedHackThreads )
           {
-            debugger
             const homeScriptNameList = [ hackScript ]
             const homeScriptArgsList = [ [sortedServer.name] ]
             const homeThreadCountList = [ clampedHackThreads ]
@@ -230,6 +228,14 @@ export async function main(ns)
           }
         }
       }          
+
+      // if we could run this on our home machine, try that before allocating to farm.
+      if ( sortedServer.requiredTotalThreads <= clampedAvailableHomeThreads )
+      {
+        const threadCountList = [ clampedGrowThreads, clampedWeakenThreads, clampedHackThreads ]
+        clampedAvailableHomeThreads -= DistribueScriptsToHome( ns, scriptNameList, scriptArgsList, threadCountList )
+        continue
+      }
 
       //If we don't have enough threads, we want to scale down our thread requirements by a uniform scalar so that we still run some of each of our required threads.
       if ( sortedServer.requiredTotalThreads > remainingThreadsAvailable )
