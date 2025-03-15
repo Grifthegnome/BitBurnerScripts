@@ -74,13 +74,20 @@ export async function main(ns)
   {
     const factionName = knownFactions[ factionIndex ]
 
-    ns.tprint( factionName )
+    if ( memberFactions.includes( factionName ) )
+    {
+      ns.tprint( factionName + " [JOINED]" )
+    }
+    else
+    {
+      ns.tprint( factionName )
+    }
+
+    
 
     const playerRequirements = ns.singularity.getFactionInviteRequirements( factionName )
 
-    if ( factionName == "NWO" )
-      debugger
-
+    ns.tprint( "  Requirements:" )
     PrintFactionPlayerRequirements( ns, playerRequirements )
 
     //ns.singularity.getAugmentationFactions
@@ -154,10 +161,10 @@ function PrintFactionPlayerRequirements( ns, requirements )
         debugger
         const conditionType = requirement[ "type" ]
 
-        if ( conditionType == "backdoorInstalled" ) 
-          ns.tprint( "    " + "Server Backdoor" + ": " + requirement[ key ] )
-        else
-          ns.tprint( "    " + key + ": " + requirement[ key ] )
+        //if ( conditionType == "backdoorInstalled" ) 
+          ns.tprint( "    " + FormatString( conditionType ) + ": " + requirement[ key ] )
+        //else
+        //  ns.tprint( "    " + FormatString( key ) + ": " + requirement[ key ] )
       }
       else if ( key == "skills" )
       {
@@ -166,7 +173,7 @@ function PrintFactionPlayerRequirements( ns, requirements )
         for ( let skillIndex = 0; skillIndex < skillKeys.length; skillIndex++ )
         {
           const skillKey = skillKeys[ skillIndex ]
-          ns.tprint( "    " + skillKey + ": " + requirement[ key ][ skillKey ] )
+          ns.tprint( "    " + FormatString( skillKey ) + ": " + requirement[ key ][ skillKey ] )
         }
       }
       else if ( key == "company" )
@@ -201,6 +208,7 @@ function PrintFactionPlayerRequirements( ns, requirements )
           if ( conditionKey == "type" )
             continue
 
+          /*
           let flagString = ""
           let criteriaString = ""
 
@@ -209,16 +217,68 @@ function PrintFactionPlayerRequirements( ns, requirements )
 
           if ( criteria == "employedBy" )
             criteriaString = "Employed By"
+          */
 
-          ns.tprint( "    " + flagString + " " + criteriaString + ": " + condition[ conditionKey ] )
+          ns.tprint( "    " + FormatString( flag ) + " " + FormatString( criteria ) + ": " + condition[ conditionKey ] )
         }
       }
       else
       {
-        ns.tprint( "    " + key + ": " + requirement[ key ] )
+        ns.tprint( "    " + FormatString( key ) + ": " + requirement[ key ] )
       }
     } 
   }
+}
 
-  
+function FormatString( string )
+{
+  if ( string == "agility" )
+    return "Agility"
+
+  if ( string == "backdoorInstalled" )
+    return "Server Backdoor"
+
+  if ( string == "city" )
+    return "City"
+
+  if ( string == "defense" )
+    return "Defense"
+
+  if ( string == "dexterity" )
+    return "Dexterity"
+
+  if ( string == "employedBy" )
+    return "Employed By"
+
+  if ( string == "hacking" )
+    return "Hacking"
+
+  if ( string == "hacknetCores" )
+    return "Hacknet Cores"
+
+  if ( string == "hacknetLevels" )
+    return "Hacknet Levels"
+
+  if ( string == "hacknetRAM" )
+    return "Hacknet RAM"
+
+  if ( string == "jobTitle" )
+    return "Job Title"
+
+  if ( string == "karma" )
+    return "Karma"
+
+  if ( string == "money" )
+    return "Money"
+
+  if ( string == "not" )
+    return "Not"
+
+  if ( string == "numPeopleKilled" )
+    return "Homicides"
+
+  if ( string == "strength" )
+    return "Strength"
+
+  return string
 }
