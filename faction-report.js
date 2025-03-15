@@ -78,6 +78,10 @@ export async function main(ns)
     {
       ns.tprint( factionName + " [JOINED]" )
     }
+    else if ( inviteFactions.includes( factionName ) )
+    {
+      ns.tprint( factionName + " [INVITED]"  )
+    }
     else
     {
       ns.tprint( factionName )
