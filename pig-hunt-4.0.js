@@ -8,6 +8,7 @@ import { GetMaxThreadsForScript } from "utility.js"
 import { GetThreadCountForScript } from "utility.js"
 import { GetMaxThreadCountForScript } from "utility.js"
 import { GetTotalThreadsRunningScriptOnNetwork } from "utility.js"
+import { GetTotalThreadsRunningScriptOnHome } from "utility.js"
 import { GetTotalAvailableRamOnNetwork } from "utility.js"
 import { GetMaxRamOnNetwork } from "utility.js"
 import { DistributeScriptsToNetwork } from "utility.js"
@@ -437,7 +438,7 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
         {
           if ( threadsToHack > 0 )
           {
-            const currentActiveHackThreads = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", hackScript, [connectionName] )
+            const currentActiveHackThreads = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", hackScript, [connectionName] ) + GetTotalThreadsRunningScriptOnHome( ns, hackScript, [connectionName] )
             threadsToHack = Math.max( 0, threadsToHack - currentActiveHackThreads )
           }
         }
@@ -532,7 +533,7 @@ function CalculateGrowthThreads( ns, targetServer, growScript )
   
   if ( growthThreads > 0 )
   {
-    const currentActiveGrowThreads = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", growScript, [targetServer] )
+    const currentActiveGrowThreads = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", growScript, [targetServer] ) + GetTotalThreadsRunningScriptOnHome( ns, growScript, [targetServer] )
     const reqGrowthThreads = Math.max( 0, growthThreads - currentActiveGrowThreads )  
     return reqGrowthThreads
   }
@@ -558,7 +559,7 @@ function CalculateWeakenThreads( ns, targetServer, weakenScript, growThreadCount
 
   if ( weakenThreads > 0 )
   {
-    const currentActiveWeakenThreads  = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", weakenScript, [targetServer] )
+    const currentActiveWeakenThreads  = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", weakenScript, [targetServer] ) + GetTotalThreadsRunningScriptOnHome( ns, weakenScript, [targetServer] )
     const reqWeakenThreads = Math.max( 0, weakenThreads - currentActiveWeakenThreads)
     return reqWeakenThreads
   }

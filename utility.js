@@ -510,6 +510,44 @@ export function DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, 
   return totalThreadsAllocated
 }
 
+export function GetTotalThreadsRunningScriptOnHome( ns, scriptName, matchingArgs )
+{
+  let threadCount = 0
+
+  const currentConnection = "home"
+
+  if ( ns.hasRootAccess( currentConnection ) )
+  {
+    const runningScripts = ns.ps( currentConnection )
+
+    for ( let j = 0; j < runningScripts.length; j++ )
+    {
+      const script = runningScripts[j]
+
+      if ( script.filename ==  scriptName )
+      {
+        if ( script.args.length < matchingArgs.length )
+          continue
+
+        let argsMatch = true
+        for ( let argIndex = 0; argIndex < matchingArgs.length; argIndex++ )
+        {
+          if ( script.args[ argIndex ] != matchingArgs[ argIndex ] )
+          {
+            argsMatch = false
+            break
+          }
+        }
+
+        if ( argsMatch )
+          threadCount += script.threads
+      }
+    }      
+  }
+
+  return threadCount
+}
+
 export function GetTotalThreadsRunningScriptOnNetwork( ns, hostServer, parentServer, scriptName, matchingArgs )
 {
   //This should be called with "home" as the starting server by the caller.
