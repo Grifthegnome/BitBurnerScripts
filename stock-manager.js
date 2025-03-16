@@ -6,10 +6,10 @@ function StockPriceRangeData( high, low, positivePriceDelta, negativePriceDelta,
   this.low  = low
   this.positivePriceDelta   = positivePriceDelta
   this.negativePriceDelta   = negativePriceDelta
-  this.priceTrendPercentile     = priceTrendPercentile
+  this.priceTrendPercentile     = priceTrendPercentile  //The percentage chance the stock will trend up or down.
   this.trendPositivePercentile  = trendPositivePercentile
   this.trendNegativePercentile  = trendNegativePercentile
-  this.secondOrderTrendPercentile = secondOrderTrendPercentile
+  this.secondOrderTrendPercentile = secondOrderTrendPercentile //The percentage chance the stock's price trend will trend upwards or downwards
 }
 
 const STOCK_SYMBOLS_DATA_FILENAME = "stock_symbols.txt"
