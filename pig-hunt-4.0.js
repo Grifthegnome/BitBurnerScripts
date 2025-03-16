@@ -45,6 +45,8 @@ const PIG_HUNT_DEBUG_PRINTS = false
 const GROW_THREAD_SECURITY_DELTA = 0.004 //This is a constant in the game.
 const ACCOUNT_HACK_ADJUSTMENT_PERCENTILE = 0.01
 
+const HOME_SERVER_MAX_RAM_USAGE = 0.75
+
 export async function main(ns) 
 {
 
@@ -149,7 +151,7 @@ export async function main(ns)
     const maxHomeThreadsPossible    = GetMaxThreadCountForScript( ns, farmingScript, "home" )
     const totalHomeThreadsAvailable = GetThreadCountForScript( ns, farmingScript, "home" )
 
-    const minFreeThreadsFrac = Math.floor( maxHomeThreadsPossible - ( maxHomeThreadsPossible * 0.75 ) )
+    const minFreeThreadsFrac = Math.floor( maxHomeThreadsPossible - ( maxHomeThreadsPossible * HOME_SERVER_MAX_RAM_USAGE ) )
     let clampedAvailableHomeThreads = totalHomeThreadsAvailable > minFreeThreadsFrac ? Math.floor( totalHomeThreadsAvailable - minFreeThreadsFrac ) : 0
 
     const maxNetworkThreadsPossible = GetMaxThreadsForScript( ns, "home", "home", farmingScript )
@@ -163,7 +165,7 @@ export async function main(ns)
 
       const remainingThreadsAvailable = totalNetworkThreadsAvailable - totalNetworkThreadsAllocated
 
-      if ( remainingThreadsAvailable <= 0 )
+      if ( remainingThreadsAvailable <= 0 && clampedAvailableHomeThreads <= 0 )
         break 
 
       let sortedServer = searchedServers[ i ]
@@ -325,8 +327,15 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
 
   const myServers = ns.getPurchasedServers()
 
+  //Determine how many threads we can run on home as an overflow if needed.
+  const maxHomeThreadsPossible    = GetMaxThreadCountForScript( ns, farmingScript, "home" )
+  const totalHomeThreadsAvailable = GetThreadCountForScript( ns, farmingScript, "home" )
+
+  const minFreeThreadsFrac = Math.floor( maxHomeThreadsPossible - ( maxHomeThreadsPossible * HOME_SERVER_MAX_RAM_USAGE ) )
+  let clampedAvailableHomeThreads = totalHomeThreadsAvailable > minFreeThreadsFrac ? Math.floor( totalHomeThreadsAvailable - minFreeThreadsFrac ) : 0
+
   //Get availble threads.
-  const availableThreads = GetTotalAvailableThreadsForScript( ns, "home", "home", farmingScript )
+  const availableThreads = GetTotalAvailableThreadsForScript( ns, "home", "home", farmingScript ) + clampedAvailableHomeThreads
 
   //If we don't have any free threads, don't bother running a ton of logic.
   if ( availableThreads == 0 )
