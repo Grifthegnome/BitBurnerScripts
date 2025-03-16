@@ -1,14 +1,15 @@
 import { KillDuplicateScriptsOnHost } from "utility.js"
 
-function StockPriceRangeData( high, low, positivePriceDelta, negativePriceDelta, priceTrendPercentile, trendPercentileUpCount, trendPercentileDownCount )
+function StockPriceRangeData( high, low, positivePriceDelta, negativePriceDelta, priceTrendPercentile, trendPositivePercentile, trendNegativePercentile, secondOrderTrendPercentile )
 {
   this.high = high
   this.low  = low
   this.positivePriceDelta   = positivePriceDelta
   this.negativePriceDelta   = negativePriceDelta
-  this.priceTrendPercentile      = priceTrendPercentile
-  this.trendPercentileUpCount    = trendPercentileUpCount
-  this.trendPercentileDownCount  = trendPercentileDownCount
+  this.priceTrendPercentile     = priceTrendPercentile
+  this.trendPositivePercentile  = trendPositivePercentile
+  this.trendNegativePercentile  = trendNegativePercentile
+  this.secondOrderTrendPercentile = secondOrderTrendPercentile
 }
 
 const STOCK_SYMBOLS_DATA_FILENAME = "stock_symbols.txt"
@@ -133,9 +134,9 @@ export async function main(ns)
           const priceTrendPercentileDelta = priceTrendPercentile - lastPriceTrendPercentile
 
           if ( priceTrendPercentileDelta > 0 )
-            marketPriceRangeData[ stockName ].trendPercentileUpCount++
+            marketPriceRangeData[ stockName ].trendPositivePercentile += priceTrendPercentileDelta
           else if ( priceTrendPercentileDelta < 0 )
-            marketPriceRangeData[ stockName ].trendPercentileDownCount++
+            marketPriceRangeData[ stockName ].trendNegativePercentile += -priceTrendPercentileDelta
 
           marketPriceRangeData[ stockName ].priceTrendPercentile = priceTrendPercentile
           updateDataFile = true
@@ -149,36 +150,39 @@ export async function main(ns)
           const priceTrendPercentileDelta = priceTrendPercentile - lastPriceTrendPercentile
 
           if ( priceTrendPercentileDelta > 0 )
-            marketPriceRangeData[ stockName ].trendPercentileUpCount++
+            marketPriceRangeData[ stockName ].trendPositivePercentile += priceTrendPercentileDelta
           else if ( priceTrendPercentileDelta < 0 )
-            marketPriceRangeData[ stockName ].trendPercentileDownCount++
+            marketPriceRangeData[ stockName ].trendNegativePercentile += -priceTrendPercentileDelta
 
           marketPriceRangeData[ stockName ].priceTrendPercentile = priceTrendPercentile
           updateDataFile = true
         }
+
+        const trendPositivePercentile   = marketPriceRangeData[ stockName ].trendPositivePercentile
+        const trendNegativePercentile   = marketPriceRangeData[ stockName ].trendNegativePercentile
+        const trendPercentileDeltaTotal = trendPositivePercentile + trendNegativePercentile
+
+        let secondOrderTrendPercentile = 0
+        if ( trendPositivePercentile > trendNegativePercentile )
+        {
+          secondOrderTrendPercentile = trendPositivePercentile / trendPercentileDeltaTotal
+          marketPriceRangeData[ stockName ].secondOrderTrendPercentile = secondOrderTrendPercentile
+          updateDataFile = true
+        }
+        else if ( trendNegativePercentile > trendPositivePercentile )
+        {
+          secondOrderTrendPercentile = -( trendNegativePercentile / trendPercentileDeltaTotal )
+          marketPriceRangeData[ stockName ].secondOrderTrendPercentile = secondOrderTrendPercentile
+          updateDataFile = true
+        }
+
       }
       else
       {
-        const stockPriceRangeDataEntry = new StockPriceRangeData( price, price, 0, 0, 0, 0, 0 )
+        const stockPriceRangeDataEntry = new StockPriceRangeData( price, price, 0, 0, 0, 0, 0, 0 )
         marketPriceRangeData[ stockName ] = stockPriceRangeDataEntry
         updateDataFile = true
       }
-
-      const trendPercentileUpCount    = marketPriceRangeData[ stockName ].trendPercentileUpCount
-      const trendPercentileDownCount  = marketPriceRangeData[ stockName ].trendPercentileDownCount
-      const trendPercentileDeltaTotal = trendPercentileUpCount + trendPercentileDownCount
-
-      let secondOrderTrendPercentile = 0
-      if ( trendPercentileUpCount > trendPercentileDownCount )
-      {
-        secondOrderTrendPercentile = trendPercentileUpCount / trendPercentileDeltaTotal
-      }
-      else if ( trendPercentileDownCount > trendPercentileUpCount )
-      {
-        secondOrderTrendPercentile = -( trendPercentileDownCount / trendPercentileDeltaTotal )
-      }
-
-      const testSecondOrder = secondOrderTrendPercentile
 
     }
 
