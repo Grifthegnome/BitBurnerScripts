@@ -278,6 +278,9 @@ function FormatString( string )
   if ( string == "not" )
     return "Not"
 
+  if ( string == "numAugmentations" )
+    return "Augmentations"
+
   if ( string == "numPeopleKilled" )
     return "Homicides"
 
