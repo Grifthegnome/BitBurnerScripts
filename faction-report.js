@@ -66,6 +66,10 @@ export async function main(ns)
     await ns.write( FACTION_NAMES_FILENAME, jsonString, "w" )
   }
 
+  const installedPlayerAugmentations = ns.singularity.getOwnedAugmentations()
+  const allPlayerAugmentations = ns.singularity.getOwnedAugmentations( true )
+  const purchasedPlayerAugmentations = allPlayerAugmentations.filter( item => !installedPlayerAugmentations.includes( item ) )
+
   ns.tprint( "======================================================" )
   ns.tprint( "FACTION REPORT" )
   ns.tprint( "======================================================" )
@@ -76,18 +80,22 @@ export async function main(ns)
 
     if ( memberFactions.includes( factionName ) )
     {
+      ns.tprint( "=======================================================================================================" )
       ns.tprint( factionName + " [JOINED]" )
+      ns.tprint( "=======================================================================================================" )
     }
     else if ( inviteFactions.includes( factionName ) )
     {
+      ns.tprint( "=======================================================================================================" )
       ns.tprint( factionName + " [INVITED]"  )
+      ns.tprint( "=======================================================================================================" )
     }
     else
     {
+      ns.tprint( "=======================================================================================================" )
       ns.tprint( factionName )
+      ns.tprint( "=======================================================================================================" )
     }
-
-    
 
     const playerRequirements = ns.singularity.getFactionInviteRequirements( factionName )
 
@@ -98,12 +106,48 @@ export async function main(ns)
 
     //ns.singularity.getAugmentationsFromFaction
 
+    ns.tprint( "  Augmentations:" )
+    const factionAugmentations = ns.singularity.getAugmentationsFromFaction( factionName )
+    for ( let augmentIndex = 0; augmentIndex < factionAugmentations.length; augmentIndex++ )
+    {
+      const augmentationName = factionAugmentations[ augmentIndex ]
+
+      const maxSpaces = 75
+      const insertSpaces = maxSpaces - augmentationName.length
+
+      let insertString = ""
+      let insertCount = 0
+      while ( insertCount < insertSpaces )
+      {
+        insertString += "-"
+        insertCount++
+      }
+
+      if ( installedPlayerAugmentations.includes( augmentationName ) )
+      {
+        ns.tprint( "    " + augmentationName + insertString + "[INSTALLED]" )
+      }
+      else if ( purchasedPlayerAugmentations.includes( augmentationName ) )
+      {
+        ns.tprint( "    " + augmentationName + insertString + "[PURCHASED]" )
+      }
+      else
+      {
+        ns.tprint( "    " + augmentationName )
+      }
+    }
+
   }
 
 }
 
 function ScrapeFactionsFromAugments( ns, knownFactions )
 {
+  /*
+  To Do: We don't need to go through all augmentations, because "NeuroFlux Governor" is shared by all factions.
+  We should be able to use this one single augmentation to get all factions, without having to waste cycles.
+  */
+
   let scrapedFactions = knownFactions.slice()
   for ( let factionIndex = 0; factionIndex < knownFactions.length; factionIndex++ )
   {
@@ -162,17 +206,11 @@ function PrintFactionPlayerRequirements( ns, requirements )
       }
       else if ( key == "server" )
       {
-        debugger
         const conditionType = requirement[ "type" ]
-
-        //if ( conditionType == "backdoorInstalled" ) 
-          ns.tprint( "    " + FormatString( conditionType ) + ": " + requirement[ key ] )
-        //else
-        //  ns.tprint( "    " + FormatString( key ) + ": " + requirement[ key ] )
+        ns.tprint( "    " + FormatString( conditionType ) + ": " + requirement[ key ] )
       }
       else if ( key == "skills" )
       {
-        //ns.tprint( "    " + key + ": " )
         const skillKeys = Object.keys( requirement[ key ] )
         for ( let skillIndex = 0; skillIndex < skillKeys.length; skillIndex++ )
         {
@@ -211,17 +249,6 @@ function PrintFactionPlayerRequirements( ns, requirements )
 
           if ( conditionKey == "type" )
             continue
-
-          /*
-          let flagString = ""
-          let criteriaString = ""
-
-          if ( flag == "not" )
-            flagString = "Not"
-
-          if ( criteria == "employedBy" )
-            criteriaString = "Employed By"
-          */
 
           ns.tprint( "    " + FormatString( flag ) + " " + FormatString( criteria ) + ": " + condition[ conditionKey ] )
         }
