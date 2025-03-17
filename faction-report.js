@@ -142,12 +142,12 @@ export async function main(ns)
 
   for ( let factionIndex = 0; factionIndex < knownFactions.length; factionIndex++ )
   {
-    const factionName = knownFactions[ factionIndex ]
+    const factionName       = knownFactions[ factionIndex ]
 
-    const isMember      = factionProgressHash[factionName].isMember
-    const isInvited     = factionProgressHash[factionName].isInvited
-    const isComplete    = factionProgressHash[factionName].isComplete
-    const progressFrac  = factionProgressHash[factionName].progressFrac
+    const isMember          = factionProgressHash[factionName].isMember
+    const isInvited         = factionProgressHash[factionName].isInvited
+    const isComplete        = factionProgressHash[factionName].isComplete
+    const progressFrac      = factionProgressHash[factionName].progressFrac
     const isMemberOrInvited = isMember || isInvited
 
     if ( isComplete )
@@ -273,10 +273,21 @@ export async function main(ns)
       }
       else
       {
-        const augmentPrice = ns.singularity.getAugmentationPrice( augmentationName )
-        const augmentRep   = ns.singularity.getAugmentationRepReq( augmentationName )
+        const augmentPrice  = ns.singularity.getAugmentationPrice( augmentationName )
+        const augmentRep    = ns.singularity.getAugmentationRepReq( augmentationName )
+        const augmentPreReq = ns.singularity.getAugmentationPrereq( augmentationName )
 
-        if ( augmentRep > factionRep )
+        let hasPreReq = true
+        for ( let i = 0; i < augmentPreReq.length; i++ )
+        {
+          const requiredAugment = augmentPreReq[ i ]
+          if ( !allPlayerAugmentations.includes( requiredAugment ) )
+            hasPreReq = false
+        }
+
+        if ( !hasPreReq )
+          nextLineString += "    " + augmentationName + insertString + "[MISS. REQ]"
+        else if ( augmentRep > factionRep )
           nextLineString += "    " + augmentationName + insertString + "[NEEDS REP]"
         else if ( availableFunds >= augmentPrice )
           nextLineString += "    " + augmentationName + insertString + "[AVAILABLE]"
