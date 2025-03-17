@@ -2,6 +2,14 @@ const FACTION_NAMES_FILENAME = "faction_names.txt"
 
 const FACTION_MAX_INSERT_SPACES = 55
 
+function FactionProgressData( isMember, isInvited, isComplete, progressFrac )
+{
+  this.isMember = isMember
+  this.isInvited = isInvited
+  this.isComplete = isComplete
+  this.progressFrac = progressFrac
+}
+
 /** @param {NS} ns */
 export async function main(ns) 
 {
@@ -66,34 +74,66 @@ export async function main(ns)
     await ns.write( FACTION_NAMES_FILENAME, jsonString, "w" )
   }
 
+  const installedPlayerAugmentations = ns.singularity.getOwnedAugmentations()
+  const allPlayerAugmentations = ns.singularity.getOwnedAugmentations( true )
+  const purchasedPlayerAugmentations = allPlayerAugmentations.filter( item => !installedPlayerAugmentations.includes( item ) )
+
   let factionPriorityHash = {}
+  let factionProgressHash = {}
 
   for ( let factionIndex = 0; factionIndex < knownFactions.length; factionIndex++ )
   {
     const factionName = knownFactions[ factionIndex ]
 
+    const isMember  = memberFactions.includes( factionName )
+    const isInvited = inviteFactions.includes( factionName )
+
+    let isComplete = true
+    let factionAugmentations = ns.singularity.getAugmentationsFromFaction( factionName )
+    let factionAugmentsOwned = 0
+    for ( let augmentIndex = 0; augmentIndex < factionAugmentations.length; augmentIndex++ )
+    {
+      const augmentationName = factionAugmentations[ augmentIndex ]
+      if ( !allPlayerAugmentations.includes( augmentationName ) )
+      {
+        isComplete = false
+      }
+      else
+      {
+        factionAugmentsOwned++
+      }
+    }
+
+    const progressFrac = factionAugmentsOwned / factionAugmentations.length
+
+    if ( !( factionName in factionProgressHash ) )
+    {
+      const progressData = new FactionProgressData( isMember, isInvited, isComplete, progressFrac )
+      factionProgressHash[ factionName ] = progressData
+    }
+
     if ( !( factionName in factionPriorityHash ) )
     {
-      if ( memberFactions.includes( factionName ) )
+      if ( isComplete )
+      {
+        factionPriorityHash[ factionName ] = 0.0
+      }
+      else if ( isMember )
       {
         factionPriorityHash[ factionName ] = 1.0
       }
-      else if ( inviteFactions.includes( factionName ) )
+      else if ( isInvited )
       {
         factionPriorityHash[ factionName ] = 0.5
       }
       else
       {
-        factionPriorityHash[ factionName ] = 0.0
+        factionPriorityHash[ factionName ] = 0.25
       }
     }
   }
 
   knownFactions.sort( (factionA, factionB) => factionPriorityHash[factionA] - factionPriorityHash[factionB] )
-
-  const installedPlayerAugmentations = ns.singularity.getOwnedAugmentations()
-  const allPlayerAugmentations = ns.singularity.getOwnedAugmentations( true )
-  const purchasedPlayerAugmentations = allPlayerAugmentations.filter( item => !installedPlayerAugmentations.includes( item ) )
 
   ns.tprint( "======================================================" )
   ns.tprint( "FACTION REPORT" )
@@ -103,20 +143,28 @@ export async function main(ns)
   {
     const factionName = knownFactions[ factionIndex ]
 
-    const isMember  = memberFactions.includes( factionName )
-    const isInvited = inviteFactions.includes( factionName )
+    const isMember      = factionProgressHash[factionName].isMember
+    const isInvited     = factionProgressHash[factionName].isInvited
+    const isComplete    = factionProgressHash[factionName].isComplete
+    const progressFrac  = factionProgressHash[factionName].progressFrac
     const isMemberOrInvited = isMember || isInvited
 
-    if ( isMember )
+    if ( isComplete )
     {
       ns.tprint( "=======================================================================================================" )
-      ns.tprint( factionName + " [JOINED]" )
+      ns.tprint( factionName + " [COMPLETE]" )
+      ns.tprint( "=======================================================================================================" )
+    }
+    else if ( isMember )
+    {
+      ns.tprint( "=======================================================================================================" )
+      ns.tprint( factionName + " [JOINED]" + "[" + Math.round(progressFrac * 100) + "% COMPLETE]" )
       ns.tprint( "=======================================================================================================" )
     }
     else if ( isInvited )
     {
       ns.tprint( "=======================================================================================================" )
-      ns.tprint( factionName + " [INVITED]"  )
+      ns.tprint( factionName + " [INVITED]" + "[" + Math.round(progressFrac * 100) + "% COMPLETE]" )
       ns.tprint( "=======================================================================================================" )
     }
     else
@@ -139,10 +187,10 @@ export async function main(ns)
     const factionRep     = ns.singularity.getFactionRep( factionName )
 
     ns.tprint( "  Augmentations:" )
-    let factionAugmentations = ns.singularity.getAugmentationsFromFaction( factionName )
 
     let augmentSortHash = {}
 
+    let factionAugmentations = ns.singularity.getAugmentationsFromFaction( factionName )
     for ( let augmentIndex = 0; augmentIndex < factionAugmentations.length; augmentIndex++ )
     {
       const augmentationName = factionAugmentations[ augmentIndex ]
@@ -248,6 +296,9 @@ export async function main(ns)
       }
 
     }
+
+    if ( currentLineString.length > 0 )
+      ns.tprint( currentLineString )
 
   }
 
