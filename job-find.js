@@ -17,7 +17,30 @@ export async function main(ns)
     return
   }
 
-  const companyList = GetCompanyList()
+  let autoApply = false
+  let targetCompany = ""
+  if ( ns.args.length > 0 )
+    autoApply = ns.args[0]
+
+  if ( ns.args.length > 1 )
+    targetCompany = ns.args[1]
+
+  let companyList = GetCompanyList()
+
+  if ( targetCompany != "" )
+  {
+    if ( companyList.includes( targetCompany ) )
+    {
+      companyList = [ targetCompany ]
+    }
+    else
+    {
+      ns.tprint( "Specified company " + targetCompany + " does not exist, please enter a valid company." )
+      ns.tprint( "Terminating script." )
+      return
+    }
+  }
+
   const player = ns.getPlayer()
 
   let potentialJobs = Array()
@@ -72,12 +95,11 @@ export async function main(ns)
   {
     const potentialJobData = potentialJobs[i]
     ns.tprint( potentialJobData.jobInfo.name + " @ " + potentialJobData.companyName + " paying " + potentialJobData.jobInfo.salary )
+    ns.tprint("   |--Apply Args: [ run job-apply.js \"" + potentialJobData.companyName + "\" " + "\"" + potentialJobData.jobInfo.name + "\"" + " ]")
   }
 
-  if ( potentialJobs.length > 0 )
+  if ( potentialJobs.length > 0 && autoApply == true )
   {
-
-    debugger
     const potentialJobData = potentialJobs[0]
     let jobAquired = ns.singularity.applyToCompany( potentialJobData.companyName, potentialJobData.jobInfo.field )
 
