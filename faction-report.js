@@ -136,12 +136,15 @@ export async function main(ns)
 
       const requiredRep = ns.singularity.getAugmentationRepReq( augmentationName )
 
-      //We don't want to count the reputation requirement of the NeuroFlux Governor augment because it can be leveled infinitely.
-      if ( requiredRep > factionMaxRepNeeded && augmentationName != "NeuroFlux Governor" )
-        factionMaxRepNeeded = requiredRep
+      
 
       if ( !allPlayerAugmentations.includes( augmentationName ) )
       {
+
+        //We don't want to count the reputation requirement of the NeuroFlux Governor augment because it can be leveled infinitely.
+        if ( requiredRep > factionMaxRepNeeded && augmentationName != "NeuroFlux Governor" )
+          factionMaxRepNeeded = requiredRep
+
         isComplete = false
       }
       else
