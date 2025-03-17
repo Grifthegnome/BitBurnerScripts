@@ -135,9 +135,10 @@ export async function main(ns)
 
   knownFactions.sort( (factionA, factionB) => factionPriorityHash[factionA] - factionPriorityHash[factionB] )
 
-  ns.tprint( "======================================================" )
-  ns.tprint( "FACTION REPORT" )
-  ns.tprint( "======================================================" )
+  ns.tprint( "\n" )
+  ns.tprint( "/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////" )
+  ns.tprint( "//                                                               FACTION REPORT                                                                //" )
+  ns.tprint( "/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////" )
 
   for ( let factionIndex = 0; factionIndex < knownFactions.length; factionIndex++ )
   {
