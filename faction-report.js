@@ -103,13 +103,17 @@ export async function main(ns)
   {
     const factionName = knownFactions[ factionIndex ]
 
-    if ( memberFactions.includes( factionName ) )
+    const isMember  = memberFactions.includes( factionName )
+    const isInvited = inviteFactions.includes( factionName )
+    const isMemberOrInvited = isMember || isInvited
+
+    if ( isMember )
     {
       ns.tprint( "=======================================================================================================" )
       ns.tprint( factionName + " [JOINED]" )
       ns.tprint( "=======================================================================================================" )
     }
-    else if ( inviteFactions.includes( factionName ) )
+    else if ( isInvited )
     {
       ns.tprint( "=======================================================================================================" )
       ns.tprint( factionName + " [INVITED]"  )
@@ -125,7 +129,7 @@ export async function main(ns)
     const playerRequirements = ns.singularity.getFactionInviteRequirements( factionName )
 
     ns.tprint( "  Requirements:" )
-    PrintFactionPlayerRequirements( ns, playerRequirements )
+    PrintFactionPlayerRequirements( ns, playerRequirements, isMemberOrInvited )
 
     //ns.singularity.getAugmentationFactions
 
@@ -290,7 +294,7 @@ function ScrapeFactionsFromAugments( ns, knownFactions )
 
 }
 
-function PrintFactionPlayerRequirements( ns, requirements )
+function PrintFactionPlayerRequirements( ns, requirements, isMemberOrInvited )
 {
 
   const player = ns.getPlayer()
@@ -372,7 +376,7 @@ function PrintFactionPlayerRequirements( ns, requirements )
       }
       else if ( key == "conditions" )
       {
-        PrintFactionPlayerRequirements( ns, requirement[ key ] )
+        PrintFactionPlayerRequirements( ns, requirement[ key ], isMemberOrInvited )
       }
       else if ( key == "condition" )
       {
@@ -402,7 +406,7 @@ function PrintFactionPlayerRequirements( ns, requirements )
         }
         else if ( key == "city" )
         {
-          completed = player.city == requirement[ key ]
+          completed = isMemberOrInvited ? true : player.city == requirement[ key ]
         }
         else if ( key == "karma" )
         {
