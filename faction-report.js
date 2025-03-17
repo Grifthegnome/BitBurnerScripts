@@ -5,6 +5,20 @@ const FACTION_RESTRICTED_AUGMENTS_FILENAME = "faction_restricted_augments.txt"
 
 const FACTION_MAX_INSERT_SPACES = 55
 
+const FACTION_REQUIREMENTS_HEADER = "REQUIREMENTS<========================================================>REQUIREMENTS"
+const FACTION_UNAQUIRED_AUGMENT_HEADER = "REMAINING AUGMENTATIONS<============================================>REMAINING AUGMENTATIONS"
+const FACTION_UNAQUIRED_AUGMENT_HEADER_DOUBLE_WIDE = "REMAINING AUGMENTATIONS<===================================================================================================================>REMAINING AUGMENTATIONS"
+const FACTION_OWNED_AUGMENT_HEADER = "OWNED AUGMENTATIONS<================================================>OWNED AUGMENTATIONS"
+const FACTION_OWNED_AUGMENT_HEADER_DOUBLE_WIDE = "OWNED AUGMENTATIONS<=======================================================================================================================>OWNED AUGMENTATIONS"
+
+const FACTION_REQUIREMENT_INDENT_STRING = "   |->"
+
+const FACTION_TOP_LEVEL_INDENT_STRING = "*->"
+const FACTION_FIRST_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING = "   |->"
+const FACTION_SUBSEQUENT_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING = "  |->"
+const FACTION_FIRST_LINE_ENTRY_UNOWNED_AUGMENT_INDENT_STRING = "   |->"
+const FACTION_SUBSEQUENT_LINE_ENTRY_UNOWNED_AUGMENT_INDENT_STRING = "  |->"
+
 function FactionScrapeData( scrapedFactions, factionRestrictedAugments )
 {
   this.scrapedFactions = scrapedFactions
@@ -213,10 +227,10 @@ export async function main(ns)
 
     const playerRequirements = ns.singularity.getFactionInviteRequirements( factionName )
 
-    ns.tprint( "  REQUIREMENTS:" )
+    ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_REQUIREMENTS_HEADER )
     PrintFactionPlayerRequirements( ns, playerRequirements, isMemberOrInvited )
 
-    ns.tprint( "  AUGMENTATIONS:" )
+    //ns.tprint( "  AUGMENTATIONS:" )
 
     let augmentSortHash = {}
 
@@ -256,6 +270,9 @@ export async function main(ns)
     let nextLineString = ""
     let hasPrintedUnpurchasedSection = false
     let hasPrintedPurchasedSection = false
+    let isUnpurchasedDoubleWide = false
+    let isPurchasedDoubleWide = false
+    let entriesOnCurrentLine = 0
     for ( let augmentIndex = 0; augmentIndex < factionAugmentations.length; augmentIndex++ )
     {
       const augmentationName = factionAugmentations[ augmentIndex ]
@@ -280,7 +297,11 @@ export async function main(ns)
         {
           if ( currentLineString.length )
           {
-            ns.tprint( "  =================================================================[UNAQUIRED]==============================================================" )
+            if ( isUnpurchasedDoubleWide )
+              ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_UNAQUIRED_AUGMENT_HEADER_DOUBLE_WIDE )
+            else
+              ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_UNAQUIRED_AUGMENT_HEADER )
+
             ns.tprint( currentLineString )
             currentLineString = ""
           }
@@ -289,23 +310,34 @@ export async function main(ns)
             
         }
 
-        if ( !hasPrintedPurchasedSection )
-        {
-          hasPrintedPurchasedSection = true
-          ns.tprint( "  ==================================================================[AQUIRED]===============================================================" )
-        }
-
-        nextLineString += "    " + augmentationName + insertString + "[INSTALLED]"
+        nextLineString += augmentationName + insertString + "[INSTALLED]"
 
         if ( currentLineString.length + nextLineString.length <= maxLineLength )
         {
-          currentLineString += nextLineString
+          currentLineString += currentLineString.length == 0 ? (FACTION_FIRST_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString) : (FACTION_SUBSEQUENT_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString)          
           nextLineString = ""
+          entriesOnCurrentLine++
+          isPurchasedDoubleWide = entriesOnCurrentLine > 1 ? true : false
         }
         else
         {
+          isPurchasedDoubleWide = entriesOnCurrentLine > 1 ? true : false
+
+          //Attempt to print header if we have not done so.
+          if ( !hasPrintedPurchasedSection )
+          {
+
+            hasPrintedPurchasedSection = true
+            
+            if ( isPurchasedDoubleWide )
+              ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_OWNED_AUGMENT_HEADER_DOUBLE_WIDE )
+            else
+              ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_OWNED_AUGMENT_HEADER )
+          }
+
           ns.tprint( currentLineString )
-          currentLineString = nextLineString
+          entriesOnCurrentLine = nextLineString.length ? 1 : 0
+          currentLineString = (FACTION_FIRST_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString)
           nextLineString = ""
         }
       }
@@ -314,9 +346,15 @@ export async function main(ns)
 
         if (!hasPrintedUnpurchasedSection)
         {
+
           if ( currentLineString.length )
           {
-            ns.tprint( "  =================================================================[UNAQUIRED]==============================================================" )
+
+            if ( isUnpurchasedDoubleWide )
+              ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_UNAQUIRED_AUGMENT_HEADER_DOUBLE_WIDE )
+            else
+              ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_UNAQUIRED_AUGMENT_HEADER )
+              
             ns.tprint( currentLineString )
             currentLineString = ""
           }
@@ -325,23 +363,35 @@ export async function main(ns)
             
         }
 
-        if ( !hasPrintedPurchasedSection )
-        {
-          hasPrintedPurchasedSection = true
-          ns.tprint( "  ==================================================================[AQUIRED]===============================================================" )
-        }
-
-        nextLineString += "    " + augmentationName + insertString + "[PURCHASED]"
+        nextLineString += augmentationName + insertString + "[PURCHASED]"
 
         if ( currentLineString.length + nextLineString.length <= maxLineLength )
         {
-          currentLineString += nextLineString
+          currentLineString += currentLineString.length == 0 ? (FACTION_FIRST_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString) : (FACTION_SUBSEQUENT_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString)          
           nextLineString = ""
+          entriesOnCurrentLine++
+          isPurchasedDoubleWide = entriesOnCurrentLine > 1 ? true : false
         }
         else
         {
+          isPurchasedDoubleWide = entriesOnCurrentLine > 1 ? true : false
+
+          //Attempt to print header if we have not done so.
+          if ( !hasPrintedPurchasedSection )
+          {
+
+            hasPrintedPurchasedSection = true
+
+            if ( isPurchasedDoubleWide )
+              ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_OWNED_AUGMENT_HEADER_DOUBLE_WIDE )
+            else
+              ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_OWNED_AUGMENT_HEADER )
+
+          }
+
           ns.tprint( currentLineString )
-          currentLineString = nextLineString
+          entriesOnCurrentLine = nextLineString.length ? 1 : 0
+          currentLineString = (FACTION_FIRST_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString)
           nextLineString = ""
         }
       }
@@ -360,29 +410,39 @@ export async function main(ns)
         }
 
         if ( !hasPreReq )
-          nextLineString += "    " + augmentationName + insertString + "[MISS. REQ]"
+          nextLineString += augmentationName + insertString + "[MISS. REQ]"
         else if ( augmentRep > factionRep )
-          nextLineString += "    " + augmentationName + insertString + "[NEEDS REP]"
+          nextLineString += augmentationName + insertString + "[NEEDS REP]"
         else if ( availableFunds >= augmentPrice )
-          nextLineString += "    " + augmentationName + insertString + "[AVAILABLE]"
+          nextLineString += augmentationName + insertString + "[AVAILABLE]"
         else
-          nextLineString += "    " + augmentationName + insertString + "[NEED CASH]"
+          nextLineString += augmentationName + insertString + "[NEED CASH]"
 
         if ( currentLineString.length + nextLineString.length <= maxLineLength )
         {
-          currentLineString += nextLineString
+          currentLineString += currentLineString.length == 0 ? (FACTION_FIRST_LINE_ENTRY_UNOWNED_AUGMENT_INDENT_STRING + nextLineString) : (FACTION_SUBSEQUENT_LINE_ENTRY_UNOWNED_AUGMENT_INDENT_STRING + nextLineString)          
           nextLineString = ""
+          entriesOnCurrentLine++
+          isUnpurchasedDoubleWide = entriesOnCurrentLine > 1 ? true : false
         }
         else
         {
+
+          isUnpurchasedDoubleWide = entriesOnCurrentLine > 1 ? true : false
+
           if ( !hasPrintedUnpurchasedSection )
           {
             hasPrintedUnpurchasedSection = true
-            ns.tprint( "  =================================================================[UNAQUIRED]==============================================================" )
+
+            if ( isUnpurchasedDoubleWide )
+              ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_UNAQUIRED_AUGMENT_HEADER_DOUBLE_WIDE )
+            else
+              ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_UNAQUIRED_AUGMENT_HEADER )
           }
 
           ns.tprint( currentLineString )
-          currentLineString = nextLineString
+          entriesOnCurrentLine = nextLineString.length ? 1 : 0
+          currentLineString = (FACTION_FIRST_LINE_ENTRY_UNOWNED_AUGMENT_INDENT_STRING + nextLineString)
           nextLineString = ""
         }
       }
@@ -392,6 +452,7 @@ export async function main(ns)
     if ( currentLineString.length > 0 )
     {
       ns.tprint( currentLineString )
+      entriesOnCurrentLine = 0
     }
       
 
@@ -634,11 +695,11 @@ function PrintRequirementWithCompletionState( ns, printString, completed )
 
   if ( completed )
   {
-    ns.tprint( "    " + printString + insertString + "[COMPLETED]" )
+    ns.tprint( FACTION_REQUIREMENT_INDENT_STRING + printString + insertString + "[COMPLETED]" )
   }
   else
   {
-    ns.tprint( "    " + printString + insertString + "[INCOMPLETE]" )
+    ns.tprint( FACTION_REQUIREMENT_INDENT_STRING + printString + insertString + "[INCOMPLETE]" )
   }
 }
 
