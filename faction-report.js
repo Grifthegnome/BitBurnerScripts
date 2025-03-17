@@ -158,19 +158,19 @@ export async function main(ns)
     else if ( isMember )
     {
       ns.tprint( "=======================================================================================================" )
-      ns.tprint( factionName + " [JOINED]" + "[" + Math.round(progressFrac * 100) + "% COMPLETE]" )
+      ns.tprint( factionName + " [JOINED]" + " [" + Math.round(progressFrac * 100) + "% COMPLETE]" )
       ns.tprint( "=======================================================================================================" )
     }
     else if ( isInvited )
     {
       ns.tprint( "=======================================================================================================" )
-      ns.tprint( factionName + " [INVITED]" + "[" + Math.round(progressFrac * 100) + "% COMPLETE]" )
+      ns.tprint( factionName + " [INVITED]" + " [" + Math.round(progressFrac * 100) + "% COMPLETE]" )
       ns.tprint( "=======================================================================================================" )
     }
     else
     {
       ns.tprint( "=======================================================================================================" )
-      ns.tprint( factionName )
+      ns.tprint( factionName + " [" + Math.round(progressFrac * 100) + "% COMPLETE]" )
       ns.tprint( "=======================================================================================================" )
     }
 
