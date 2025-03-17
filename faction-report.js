@@ -559,6 +559,9 @@ function PrintFactionPlayerRequirements( ns, requirements, isMemberOrInvited )
           if ( requirement[ key ][ skillKey ] <= playerSkillValue )
             completed = true
 
+          if ( isMemberOrInvited )
+            completed = true
+
           const printString = FormatString( skillKey ) + ": " + requirement[ key ][ skillKey ]
           PrintRequirementWithCompletionState( ns, printString, completed )
             
@@ -669,6 +672,11 @@ function PrintFactionPlayerRequirements( ns, requirements, isMemberOrInvited )
           }
 
           completed = totalCores >= requirement[ key ]
+        }
+        else if ( key == "jobTitle" )
+        {
+          const values = Object.values( player.jobs )
+          completed = isMemberOrInvited || values.includes( requirement[ "jobTitle" ] )
         }
 
         const printString = FormatString( key ) + ": " + requirement[ key ]
