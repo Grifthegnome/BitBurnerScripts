@@ -18,6 +18,28 @@ export async function main(ns)
 
 }
 
+export function AddCommasToNumber( number )
+{
+  let numberAsString = number.toString()
+  let insertIndices = Array()
+  for ( let i = numberAsString.length - 3; i > 0; i -= 3 )
+  {
+    insertIndices.push( i - 1 )
+  }
+
+  let finalString = ""
+  for ( let i = 0; i < numberAsString.length; i++ )
+  {
+    finalString += numberAsString[i]
+
+    if ( insertIndices.includes( i ) )
+      finalString += ","
+  }
+
+  return finalString
+
+}
+
 export function GetReadableDateDelta( delta )
 {
   let seconds = Math.floor( delta/ 1000 )

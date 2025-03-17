@@ -1,3 +1,5 @@
+import {AddCommasToNumber} from "utility.js"
+
 const FACTION_NAMES_FILENAME = "faction_names.txt"
 const FACTION_RESTRICTED_AUGMENTS_FILENAME = "faction_restricted_augments.txt"
 
@@ -9,12 +11,13 @@ function FactionScrapeData( scrapedFactions, factionRestrictedAugments )
   this.factionRestrictedAugments = factionRestrictedAugments
 }
 
-function FactionProgressData( isMember, isInvited, isComplete, progressFrac )
+function FactionProgressData( isMember, isInvited, isComplete, progressFrac, factionMaxRepNeeded )
 {
   this.isMember = isMember
   this.isInvited = isInvited
   this.isComplete = isComplete
   this.progressFrac = progressFrac
+  this.factionMaxRepNeeded = factionMaxRepNeeded
 }
 
 /** @param {NS} ns */
@@ -112,9 +115,16 @@ export async function main(ns)
     let isComplete = true
     let factionAugmentations = ns.singularity.getAugmentationsFromFaction( factionName )
     let factionAugmentsOwned = 0
+    let factionMaxRepNeeded = 0
     for ( let augmentIndex = 0; augmentIndex < factionAugmentations.length; augmentIndex++ )
     {
       const augmentationName = factionAugmentations[ augmentIndex ]
+
+      const requiredRep = ns.singularity.getAugmentationRepReq( augmentationName )
+
+      if ( requiredRep > factionMaxRepNeeded )
+        factionMaxRepNeeded = requiredRep
+
       if ( !allPlayerAugmentations.includes( augmentationName ) )
       {
         isComplete = false
@@ -129,7 +139,7 @@ export async function main(ns)
 
     if ( !( factionName in factionProgressHash ) )
     {
-      const progressData = new FactionProgressData( isMember, isInvited, isComplete, progressFrac )
+      const progressData = new FactionProgressData( isMember, isInvited, isComplete, progressFrac, factionMaxRepNeeded )
       factionProgressHash[ factionName ] = progressData
     }
 
@@ -163,13 +173,18 @@ export async function main(ns)
 
   for ( let factionIndex = 0; factionIndex < knownFactions.length; factionIndex++ )
   {
-    const factionName       = knownFactions[ factionIndex ]
+    const factionName         = knownFactions[ factionIndex ]
+    const availableFunds      = ns.getServerMoneyAvailable( "home" )
+    const factionRep          = ns.singularity.getFactionRep( factionName )
+    const clampedRep          = Math.floor( factionRep )
 
-    const isMember          = factionProgressHash[factionName].isMember
-    const isInvited         = factionProgressHash[factionName].isInvited
-    const isComplete        = factionProgressHash[factionName].isComplete
-    const progressFrac      = factionProgressHash[factionName].progressFrac
-    const isMemberOrInvited = isMember || isInvited
+    const isMember            = factionProgressHash[factionName].isMember
+    const isInvited           = factionProgressHash[factionName].isInvited
+    const isComplete          = factionProgressHash[factionName].isComplete
+    const progressFrac        = factionProgressHash[factionName].progressFrac
+    const factionMaxRepNeeded = factionProgressHash[factionName].factionMaxRepNeeded
+    const clampedMaxRep       = Math.floor( factionMaxRepNeeded )
+    const isMemberOrInvited   = isMember || isInvited
 
     if ( isComplete )
     {
@@ -180,19 +195,19 @@ export async function main(ns)
     else if ( isMember )
     {
       ns.tprint( "=======================================================================================================" )
-      ns.tprint( factionName + " [JOINED]" + " [" + Math.round(progressFrac * 100) + "% COMPLETE]" )
+      ns.tprint( factionName + " [JOINED]" + " [" + Math.round(progressFrac * 100) + "% COMPLETE] " + "[REPUTATION " + AddCommasToNumber(clampedRep) + " of " + AddCommasToNumber(clampedMaxRep) + "]")
       ns.tprint( "=======================================================================================================" )
     }
     else if ( isInvited )
     {
       ns.tprint( "=======================================================================================================" )
-      ns.tprint( factionName + " [INVITED]" + " [" + Math.round(progressFrac * 100) + "% COMPLETE]" )
+      ns.tprint( factionName + " [INVITED]" + " [" + Math.round(progressFrac * 100) + "% COMPLETE] " + "[REPUTATION " + AddCommasToNumber(clampedRep) + " of " + AddCommasToNumber(clampedMaxRep) + "]")
       ns.tprint( "=======================================================================================================" )
     }
     else
     {
       ns.tprint( "=======================================================================================================" )
-      ns.tprint( factionName + " [" + Math.round(progressFrac * 100) + "% COMPLETE]" )
+      ns.tprint( factionName + " [" + Math.round(progressFrac * 100) + "% COMPLETE] " + "[REPUTATION " + AddCommasToNumber(clampedRep) + " of " + AddCommasToNumber(clampedMaxRep) + "]")
       ns.tprint( "=======================================================================================================" )
     }
 
@@ -200,13 +215,6 @@ export async function main(ns)
 
     ns.tprint( "  Requirements:" )
     PrintFactionPlayerRequirements( ns, playerRequirements, isMemberOrInvited )
-
-    //ns.singularity.getAugmentationFactions
-
-    //ns.singularity.getAugmentationsFromFaction
-
-    const availableFunds = ns.getServerMoneyAvailable( "home" )
-    const factionRep     = ns.singularity.getFactionRep( factionName )
 
     ns.tprint( "  Augmentations:" )
 
