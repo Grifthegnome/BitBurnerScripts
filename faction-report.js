@@ -1,6 +1,13 @@
 const FACTION_NAMES_FILENAME = "faction_names.txt"
+const FACTION_RESTRICTED_AUGMENTS_FILENAME = "faction_restricted_augments.txt"
 
 const FACTION_MAX_INSERT_SPACES = 55
+
+function FactionScrapeData( scrapedFactions, factionRestrictedAugments )
+{
+  this.scrapedFactions = scrapedFactions
+  this.factionRestrictedAugments = factionRestrictedAugments
+}
 
 function FactionProgressData( isMember, isInvited, isComplete, progressFrac )
 {
@@ -46,7 +53,15 @@ export async function main(ns)
     knownFactions = JSON.parse( jsonString )
   }
 
+  let factionRestrictedAugments = Array()
+  if ( ns.fileExists( FACTION_RESTRICTED_AUGMENTS_FILENAME ) )
+  {
+    const jsonString = ns.read( FACTION_RESTRICTED_AUGMENTS_FILENAME )
+    factionRestrictedAugments = JSON.parse( jsonString )
+  }
+
   const factionStartingCount = knownFactions.length
+  const factionRestrictedAugmentsStartingCount = factionRestrictedAugments.length
 
   const player = ns.getPlayer()
   const memberFactions = player.factions
@@ -63,15 +78,21 @@ export async function main(ns)
   }
 
   //See if we can scrape additional factions from augment lists.
-  knownFactions = ScrapeFactionsFromAugments(ns, knownFactions)
-
-  const factionCurrentCount = knownFactions.length
+  const factionScrapeData = ScrapeFactionsFromAugments(ns, knownFactions)
+  knownFactions = factionScrapeData.scrapedFactions
+  factionRestrictedAugments = factionScrapeData.factionRestrictedAugments
 
   //Write any new factions to our faction name file.
-  if ( factionStartingCount != factionCurrentCount )
+  if ( factionStartingCount != knownFactions.length )
   {
     const jsonString = JSON.stringify( knownFactions )
     await ns.write( FACTION_NAMES_FILENAME, jsonString, "w" )
+  }
+
+  if ( factionRestrictedAugmentsStartingCount != factionRestrictedAugments.length )
+  {
+    const jsonString = JSON.stringify( factionRestrictedAugments )
+    await ns.write( FACTION_RESTRICTED_AUGMENTS_FILENAME, jsonString, "w" )
   }
 
   const installedPlayerAugmentations = ns.singularity.getOwnedAugmentations()
@@ -229,13 +250,16 @@ export async function main(ns)
     {
       const augmentationName = factionAugmentations[ augmentIndex ]
 
-      const insertSpaces = FACTION_MAX_INSERT_SPACES - augmentationName.length
+      const factionRestricted = factionRestrictedAugments.includes( augmentationName )
 
-      let insertString = ""
+      let insertString = factionRestricted == true ? "[UNIQUE]-" : ""
+
+      const insertSpaces = ( FACTION_MAX_INSERT_SPACES - augmentationName.length ) - insertString.length
+
       let insertCount = 0
       while ( insertCount < insertSpaces )
       {
-        insertString += "-"
+        insertString = "-" + insertString
         insertCount++
       }
 
@@ -323,6 +347,7 @@ function ScrapeFactionsFromAugments( ns, knownFactions )
   We should be able to use this one single augmentation to get all factions, without having to waste cycles.
   */
 
+  let factionRestrictedAugments = Array()
   let scrapedFactions = knownFactions.slice()
   for ( let factionIndex = 0; factionIndex < knownFactions.length; factionIndex++ )
   {
@@ -334,9 +359,12 @@ function ScrapeFactionsFromAugments( ns, knownFactions )
       const augmentationName = augmentationList[ augmentIndex ]
       const factionsWithAugmentation = ns.singularity.getAugmentationFactions( augmentationName )
 
+      if ( factionsWithAugmentation.length == 1 )
+        factionRestrictedAugments.push( augmentationName )
+
       //Note: This might cause bugs, but it seems like it saves us cycles once we have all the factions.
-      if ( factionsWithAugmentation.length == scrapedFactions.length )
-        break
+      //if ( factionsWithAugmentation.length == scrapedFactions.length )
+      //break
 
       for ( let fwaIndex = 0; fwaIndex < factionsWithAugmentation.length; fwaIndex++ )
       {
@@ -353,7 +381,9 @@ function ScrapeFactionsFromAugments( ns, knownFactions )
     scrapedFactions = ScrapeFactionsFromAugments( ns, scrapedFactions )
   }
 
-  return scrapedFactions
+  const factionScrapeData = new FactionScrapeData( scrapedFactions, factionRestrictedAugments )
+
+  return factionScrapeData
 
 }
 
