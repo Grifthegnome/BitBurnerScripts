@@ -213,10 +213,10 @@ export async function main(ns)
 
     const playerRequirements = ns.singularity.getFactionInviteRequirements( factionName )
 
-    ns.tprint( "  Requirements:" )
+    ns.tprint( "  REQUIREMENTS:" )
     PrintFactionPlayerRequirements( ns, playerRequirements, isMemberOrInvited )
 
-    ns.tprint( "  Augmentations:" )
+    ns.tprint( "  AUGMENTATIONS:" )
 
     let augmentSortHash = {}
 
@@ -228,11 +228,11 @@ export async function main(ns)
       {
         if ( installedPlayerAugmentations.includes( augmentationName ) )
         {
-          augmentSortHash[ augmentationName ] = 1.0
+          augmentSortHash[ augmentationName ] = 0.0
         }
         else if ( purchasedPlayerAugmentations.includes( augmentationName ) )
         {
-          augmentSortHash[ augmentationName ] = 0.75
+          augmentSortHash[ augmentationName ] = 0.25
         }
         else
         {
@@ -240,11 +240,11 @@ export async function main(ns)
           const augmentRep   = ns.singularity.getAugmentationRepReq( augmentationName )
 
           if ( augmentRep > factionRep )
-            augmentSortHash[ augmentationName ] = 0.0
-          else if ( availableFunds >= augmentPrice )
             augmentSortHash[ augmentationName ] = 0.5
+          else if ( availableFunds >= augmentPrice )
+            augmentSortHash[ augmentationName ] = 1.0
           else
-            augmentSortHash[ augmentationName ] = 0.25
+            augmentSortHash[ augmentationName ] = 0.75
         }
       }
     }
@@ -254,6 +254,8 @@ export async function main(ns)
     const maxLineLength = FACTION_MAX_INSERT_SPACES * 3
     let currentLineString = ""
     let nextLineString = ""
+    let hasPrintedUnpurchasedSection = false
+    let hasPrintedPurchasedSection = false
     for ( let augmentIndex = 0; augmentIndex < factionAugmentations.length; augmentIndex++ )
     {
       const augmentationName = factionAugmentations[ augmentIndex ]
@@ -273,6 +275,26 @@ export async function main(ns)
 
       if ( installedPlayerAugmentations.includes( augmentationName ) )
       {
+
+        if (!hasPrintedUnpurchasedSection)
+        {
+          if ( currentLineString.length )
+          {
+            ns.tprint( "  =================================================================[UNAQUIRED]==============================================================" )
+            ns.tprint( currentLineString )
+            currentLineString = ""
+          }
+
+          hasPrintedUnpurchasedSection = true
+            
+        }
+
+        if ( !hasPrintedPurchasedSection )
+        {
+          hasPrintedPurchasedSection = true
+          ns.tprint( "  ==================================================================[AQUIRED]===============================================================" )
+        }
+
         nextLineString += "    " + augmentationName + insertString + "[INSTALLED]"
 
         if ( currentLineString.length + nextLineString.length <= maxLineLength )
@@ -289,6 +311,26 @@ export async function main(ns)
       }
       else if ( purchasedPlayerAugmentations.includes( augmentationName ) )
       {
+
+        if (!hasPrintedUnpurchasedSection)
+        {
+          if ( currentLineString.length )
+          {
+            ns.tprint( "  =================================================================[UNAQUIRED]==============================================================" )
+            ns.tprint( currentLineString )
+            currentLineString = ""
+          }
+
+          hasPrintedUnpurchasedSection = true
+            
+        }
+
+        if ( !hasPrintedPurchasedSection )
+        {
+          hasPrintedPurchasedSection = true
+          ns.tprint( "  ==================================================================[AQUIRED]===============================================================" )
+        }
+
         nextLineString += "    " + augmentationName + insertString + "[PURCHASED]"
 
         if ( currentLineString.length + nextLineString.length <= maxLineLength )
@@ -333,6 +375,12 @@ export async function main(ns)
         }
         else
         {
+          if ( !hasPrintedUnpurchasedSection )
+          {
+            hasPrintedUnpurchasedSection = true
+            ns.tprint( "  =================================================================[UNAQUIRED]==============================================================" )
+          }
+
           ns.tprint( currentLineString )
           currentLineString = nextLineString
           nextLineString = ""
@@ -342,7 +390,10 @@ export async function main(ns)
     }
 
     if ( currentLineString.length > 0 )
+    {
       ns.tprint( currentLineString )
+    }
+      
 
   }
 
