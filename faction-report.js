@@ -1,5 +1,7 @@
 const FACTION_NAMES_FILENAME = "faction_names.txt"
 
+const FACTION_MAX_INSERT_SPACES = 55
+
 /** @param {NS} ns */
 export async function main(ns) 
 {
@@ -10,8 +12,6 @@ export async function main(ns)
     ns.tprint( "Terminating script." )
     return
   }
-
-  
 
   /*
   There might be a way for us to pull a sneaky trick here and reveal more factions through a cyclical augmentation/faction search.
@@ -66,6 +66,31 @@ export async function main(ns)
     await ns.write( FACTION_NAMES_FILENAME, jsonString, "w" )
   }
 
+  let factionPriorityHash = {}
+
+  for ( let factionIndex = 0; factionIndex < knownFactions.length; factionIndex++ )
+  {
+    const factionName = knownFactions[ factionIndex ]
+
+    if ( !( factionName in factionPriorityHash ) )
+    {
+      if ( memberFactions.includes( factionName ) )
+      {
+        factionPriorityHash[ factionName ] = 1.0
+      }
+      else if ( inviteFactions.includes( factionName ) )
+      {
+        factionPriorityHash[ factionName ] = 0.5
+      }
+      else
+      {
+        factionPriorityHash[ factionName ] = 0.0
+      }
+    }
+  }
+
+  knownFactions.sort( (factionA, factionB) => factionPriorityHash[factionA] - factionPriorityHash[factionB] )
+
   const installedPlayerAugmentations = ns.singularity.getOwnedAugmentations()
   const allPlayerAugmentations = ns.singularity.getOwnedAugmentations( true )
   const purchasedPlayerAugmentations = allPlayerAugmentations.filter( item => !installedPlayerAugmentations.includes( item ) )
@@ -106,14 +131,52 @@ export async function main(ns)
 
     //ns.singularity.getAugmentationsFromFaction
 
+    const availableFunds = ns.getServerMoneyAvailable( "home" )
+    const factionRep     = ns.singularity.getFactionRep( factionName )
+
     ns.tprint( "  Augmentations:" )
-    const factionAugmentations = ns.singularity.getAugmentationsFromFaction( factionName )
+    let factionAugmentations = ns.singularity.getAugmentationsFromFaction( factionName )
+
+    let augmentSortHash = {}
+
+    for ( let augmentIndex = 0; augmentIndex < factionAugmentations.length; augmentIndex++ )
+    {
+      const augmentationName = factionAugmentations[ augmentIndex ]
+      if ( !(augmentationName in augmentSortHash) )
+      {
+        if ( installedPlayerAugmentations.includes( augmentationName ) )
+        {
+          augmentSortHash[ augmentationName ] = 1.0
+        }
+        else if ( purchasedPlayerAugmentations.includes( augmentationName ) )
+        {
+          augmentSortHash[ augmentationName ] = 0.75
+        }
+        else
+        {
+          const augmentPrice = ns.singularity.getAugmentationPrice( augmentationName )
+          const augmentRep   = ns.singularity.getAugmentationRepReq( augmentationName )
+
+          if ( augmentRep > factionRep )
+            augmentSortHash[ augmentationName ] = 0.0
+          else if ( availableFunds >= augmentPrice )
+            augmentSortHash[ augmentationName ] = 0.5
+          else
+            augmentSortHash[ augmentationName ] = 0.25
+        }
+      }
+    }
+
+    factionAugmentations.sort( (augA, augB) => augmentSortHash[ augB ] - augmentSortHash[ augA ] )
+
+    const maxLineLength = FACTION_MAX_INSERT_SPACES * 3
+    let currentLineString = ""
+    let nextLineString = ""
     for ( let augmentIndex = 0; augmentIndex < factionAugmentations.length; augmentIndex++ )
     {
       const augmentationName = factionAugmentations[ augmentIndex ]
 
-      const maxSpaces = 75
-      const insertSpaces = maxSpaces - augmentationName.length
+      const insertSpaces = FACTION_MAX_INSERT_SPACES - augmentationName.length
 
       let insertString = ""
       let insertCount = 0
@@ -125,16 +188,61 @@ export async function main(ns)
 
       if ( installedPlayerAugmentations.includes( augmentationName ) )
       {
-        ns.tprint( "    " + augmentationName + insertString + "[INSTALLED]" )
+        nextLineString += "    " + augmentationName + insertString + "[INSTALLED]"
+
+        if ( currentLineString.length + nextLineString.length <= maxLineLength )
+        {
+          currentLineString += nextLineString
+          nextLineString = ""
+        }
+        else
+        {
+          ns.tprint( currentLineString )
+          currentLineString = nextLineString
+          nextLineString = ""
+        }
       }
       else if ( purchasedPlayerAugmentations.includes( augmentationName ) )
       {
-        ns.tprint( "    " + augmentationName + insertString + "[PURCHASED]" )
+        nextLineString += "    " + augmentationName + insertString + "[PURCHASED]"
+
+        if ( currentLineString.length + nextLineString.length <= maxLineLength )
+        {
+          currentLineString += nextLineString
+          nextLineString = ""
+        }
+        else
+        {
+          ns.tprint( currentLineString )
+          currentLineString = nextLineString
+          nextLineString = ""
+        }
       }
       else
       {
-        ns.tprint( "    " + augmentationName )
+        const augmentPrice = ns.singularity.getAugmentationPrice( augmentationName )
+        const augmentRep   = ns.singularity.getAugmentationRepReq( augmentationName )
+
+        if ( augmentRep > factionRep )
+          nextLineString += "    " + augmentationName + insertString + "[NEEDS REP]"
+        else if ( availableFunds >= augmentPrice )
+          nextLineString += "    " + augmentationName + insertString + "[AVAILABLE]"
+        else
+          nextLineString += "    " + augmentationName + insertString + "[NEED CASH]"
+
+        if ( currentLineString.length + nextLineString.length <= maxLineLength )
+        {
+          currentLineString += nextLineString
+          nextLineString = ""
+        }
+        else
+        {
+          ns.tprint( currentLineString )
+          currentLineString = nextLineString
+          nextLineString = ""
+        }
       }
+
     }
 
   }
@@ -185,6 +293,9 @@ function ScrapeFactionsFromAugments( ns, knownFactions )
 function PrintFactionPlayerRequirements( ns, requirements )
 {
 
+  const player = ns.getPlayer()
+  const availableFunds = ns.getServerMoneyAvailable( "home" )
+
   for ( let requirementIndex = 0; requirementIndex < requirements.length; requirementIndex++ )
   {
     const requirement = requirements[ requirementIndex ]
@@ -207,7 +318,15 @@ function PrintFactionPlayerRequirements( ns, requirements )
       else if ( key == "server" )
       {
         const conditionType = requirement[ "type" ]
-        ns.tprint( "    " + FormatString( conditionType ) + ": " + requirement[ key ] )
+
+        const serverData = ns.getServer( requirement[ key ] )
+
+        const completed = serverData.backdoorInstalled
+        const printString = FormatString( conditionType ) + ": " + requirement[ key ]
+
+        PrintRequirementWithCompletionState( ns, printString, completed )      
+
+        //ns.tprint( "    " + FormatString( conditionType ) + ": " + requirement[ key ] )
       }
       else if ( key == "skills" )
       {
@@ -215,7 +334,16 @@ function PrintFactionPlayerRequirements( ns, requirements )
         for ( let skillIndex = 0; skillIndex < skillKeys.length; skillIndex++ )
         {
           const skillKey = skillKeys[ skillIndex ]
-          ns.tprint( "    " + FormatString( skillKey ) + ": " + requirement[ key ][ skillKey ] )
+
+          const playerSkillValue = player.skills[ skillKey ]
+          let completed = false
+
+          if ( requirement[ key ][ skillKey ] <= playerSkillValue )
+            completed = true
+
+          const printString = FormatString( skillKey ) + ": " + requirement[ key ][ skillKey ]
+          PrintRequirementWithCompletionState( ns, printString, completed )
+            
         }
       }
       else if ( key == "company" )
@@ -223,13 +351,23 @@ function PrintFactionPlayerRequirements( ns, requirements )
         const conditionType = requirement[ "type" ]
         
         let conditionTypeString = ""
+        let completed = false
         if ( "employedBy" == conditionType )
+        {
           conditionTypeString = "Employed By: " + requirement[ key ]
-
+          completed = requirement[ key ] in player.jobs
+        }
+          
         if ( "companyReputation" == conditionType )
+        {
           conditionTypeString = (requirement[ key ] + " Reputation: " + requirement[ "reputation" ])
+          completed = ns.singularity.getCompanyRep( requirement[ key ] ) > requirement[ "reputation" ]
+        }
+          
 
-        ns.tprint( "    " + conditionTypeString )
+        PrintRequirementWithCompletionState( ns, conditionTypeString, completed )
+
+        //ns.tprint( "    " + conditionTypeString )
 
       }
       else if ( key == "conditions" )
@@ -238,11 +376,11 @@ function PrintFactionPlayerRequirements( ns, requirements )
       }
       else if ( key == "condition" )
       {
-        const condition = requirement[ key ]
-        const flag      = requirement[ "type" ]
-        const criteria  = requirement[ key ][ "type" ]
+        const conditionTarget = requirement[ key ]
+        const flag            = requirement[ "type" ]
+        const criteria        = requirement[ key ][ "type" ]
 
-        const conditionKeys = Object.keys( condition )
+        const conditionKeys = Object.keys( conditionTarget )
         for( let conditionKeyIndex = 0; conditionKeyIndex < conditionKeys.length; conditionKeyIndex++ )
         {
           const conditionKey = conditionKeys[ conditionKeyIndex ]
@@ -250,15 +388,124 @@ function PrintFactionPlayerRequirements( ns, requirements )
           if ( conditionKey == "type" )
             continue
 
-          ns.tprint( "    " + FormatString( flag ) + " " + FormatString( criteria ) + ": " + condition[ conditionKey ] )
+          const completed = EvaluateConditionForCompletion( ns, flag, criteria, conditionTarget[ conditionKey ] )
+          const printString = FormatString( flag ) + " " + FormatString( criteria ) + ": " + conditionTarget[ conditionKey ]
+          PrintRequirementWithCompletionState( ns, printString, completed )
         }
       }
       else
       {
-        ns.tprint( "    " + FormatString( key ) + ": " + requirement[ key ] )
+        let completed = false
+        if ( key == "money" )
+        {
+          completed = availableFunds >= requirement[ key ]
+        }
+        else if ( key == "city" )
+        {
+          completed = player.city == requirement[ key ]
+        }
+        else if ( key == "karma" )
+        {
+          completed = player.karma <= requirement[ key ]
+        }
+        else if ( key == "numPeopleKilled" )
+        {
+          completed = player.numPeopleKilled >= requirement[ key ]
+        }
+        else if ( key == "numAugmentations" )
+        {
+          completed = ns.singularity.getOwnedAugmentations().length >= requirement[ key ]
+        }
+        else if ( key == "hacknetLevels" )
+        {
+          const hacknodeCount = ns.hacknet.numNodes()
+          let totalLevels = 0
+          for ( let i = 0; i < hacknodeCount; i++ )
+          {
+            const nodeStats = ns.hacknet.getNodeStats( i )
+            totalLevels += nodeStats.level
+          }
+
+          completed = totalLevels >= requirement[ key ]
+        }
+        else if ( key == "hacknetRAM" )
+        {
+          const hacknodeCount = ns.hacknet.numNodes()
+          let totalRam = 0
+          for ( let i = 0; i < hacknodeCount; i++ )
+          {
+            const nodeStats = ns.hacknet.getNodeStats( i )
+            totalRam += nodeStats.ram
+          }
+
+          completed = totalRam >= requirement[ key ]
+        }
+        else if ( key == "hacknetCores" )
+        {
+          const hacknodeCount = ns.hacknet.numNodes()
+          let totalCores = 0
+          for ( let i = 0; i < hacknodeCount; i++ )
+          {
+            const nodeStats = ns.hacknet.getNodeStats( i )
+            totalCores += nodeStats.cores
+          }
+
+          completed = totalCores >= requirement[ key ]
+        }
+
+        const printString = FormatString( key ) + ": " + requirement[ key ]
+
+        PrintRequirementWithCompletionState( ns, printString, completed )
+
+        //ns.tprint( "    " + FormatString( key ) + ": " + requirement[ key ] )
       }
     } 
   }
+}
+
+function PrintRequirementWithCompletionState( ns, printString, completed )
+{
+
+  const insertSpaces = FACTION_MAX_INSERT_SPACES - printString.length
+
+    let insertString = ""
+    let insertCount = 0
+    while ( insertCount < insertSpaces )
+    {
+      insertString += "-"
+      insertCount++
+    }
+
+  if ( completed )
+  {
+    ns.tprint( "    " + printString + insertString + "[COMPLETED]" )
+  }
+  else
+  {
+    ns.tprint( "    " + printString + insertString + "[INCOMPLETE]" )
+  }
+}
+
+function EvaluateConditionForCompletion( ns, flag, criteria, conditionTarget )
+{
+  const player = ns.getPlayer()
+
+  if ( criteria == "employedBy" )
+  {
+    let employedByTarget = false
+    if ( conditionTarget in player.jobs )
+    {
+      employedByTarget = true
+    }
+
+    if ( flag == "not" )
+      return !employedByTarget
+
+    return employedByTarget
+
+  }
+
+  return false
 }
 
 function FormatString( string )
