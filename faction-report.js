@@ -341,7 +341,7 @@ export async function main(ns)
           currentLineString = (FACTION_FIRST_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString)
           nextLineString = ""
 
-          isPurchasedDoubleWide = entriesOnCurrentLine > 1 ? true : false
+          isPurchasedDoubleWide = augmentIndex < factionAugmentations.length - 1
 
           //Attempt to print header if we have not done so.
           if ( !hasPrintedPurchasedSection )
@@ -404,7 +404,7 @@ export async function main(ns)
           currentLineString = (FACTION_FIRST_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString)
           nextLineString = ""
 
-          isPurchasedDoubleWide = entriesOnCurrentLine > 1 ? true : false
+          isPurchasedDoubleWide = augmentIndex < factionAugmentations.length - 1
 
           //Attempt to print header if we have not done so.
           if ( !hasPrintedPurchasedSection )
