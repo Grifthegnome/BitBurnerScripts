@@ -112,6 +112,21 @@ export async function main(ns)
     await ns.write( FACTION_RESTRICTED_AUGMENTS_FILENAME, jsonString, "w" )
   }
 
+  if ( ns.args.length )
+  {
+    if ( knownFactions.includes( ns.args[0] ) )
+    {
+      knownFactions = [ ns.args[0] ]
+    }
+    else
+    {
+      ns.tprint( ns.args[0] + " is not a valid faction." )
+      ns.tprint( "Terminating script." )
+      return
+    }
+  }
+    
+
   const installedPlayerAugmentations = ns.singularity.getOwnedAugmentations()
   const allPlayerAugmentations = ns.singularity.getOwnedAugmentations( true )
   const purchasedPlayerAugmentations = allPlayerAugmentations.filter( item => !installedPlayerAugmentations.includes( item ) )
