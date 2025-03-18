@@ -316,7 +316,31 @@ export async function main(ns)
 
         nextLineString += augmentationName + insertString + "[INSTALLED]"
 
-        if ( currentLineString.length + nextLineString.length <= maxLineLength )
+        if ( hasPrintedUnpurchasedSection && !hasPrintedPurchasedSection )
+        {
+
+          if ( currentLineString != "" )
+            ns.tprint( currentLineString )
+
+          entriesOnCurrentLine = nextLineString.length ? 1 : 0
+          currentLineString = (FACTION_FIRST_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString)
+          nextLineString = ""
+
+          isPurchasedDoubleWide = entriesOnCurrentLine > 1 ? true : false
+
+          //Attempt to print header if we have not done so.
+          if ( !hasPrintedPurchasedSection )
+          {
+
+            hasPrintedPurchasedSection = true
+
+            if ( isPurchasedDoubleWide )
+              ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_OWNED_AUGMENT_HEADER_DOUBLE_WIDE )
+            else
+              ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_OWNED_AUGMENT_HEADER )
+          }
+        }
+        else if ( currentLineString.length + nextLineString.length <= maxLineLength )
         {
           currentLineString += currentLineString.length == 0 ? (FACTION_FIRST_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString) : (FACTION_SUBSEQUENT_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString)          
           nextLineString = ""
@@ -325,20 +349,6 @@ export async function main(ns)
         }
         else
         {
-          isPurchasedDoubleWide = entriesOnCurrentLine > 1 ? true : false
-
-          //Attempt to print header if we have not done so.
-          if ( !hasPrintedPurchasedSection )
-          {
-
-            hasPrintedPurchasedSection = true
-            
-            if ( isPurchasedDoubleWide )
-              ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_OWNED_AUGMENT_HEADER_DOUBLE_WIDE )
-            else
-              ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_OWNED_AUGMENT_HEADER )
-          }
-
           ns.tprint( currentLineString )
           entriesOnCurrentLine = nextLineString.length ? 1 : 0
           currentLineString = (FACTION_FIRST_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString)
@@ -369,15 +379,16 @@ export async function main(ns)
 
         nextLineString += augmentationName + insertString + "[PURCHASED]"
 
-        if ( currentLineString.length + nextLineString.length <= maxLineLength )
+        if ( hasPrintedUnpurchasedSection && !hasPrintedPurchasedSection )
         {
-          currentLineString += currentLineString.length == 0 ? (FACTION_FIRST_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString) : (FACTION_SUBSEQUENT_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString)          
+
+          if ( currentLineString != "" )
+            ns.tprint( currentLineString )
+            
+          entriesOnCurrentLine = nextLineString.length ? 1 : 0
+          currentLineString = (FACTION_FIRST_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString)
           nextLineString = ""
-          entriesOnCurrentLine++
-          isPurchasedDoubleWide = entriesOnCurrentLine > 1 ? true : false
-        }
-        else
-        {
+
           isPurchasedDoubleWide = entriesOnCurrentLine > 1 ? true : false
 
           //Attempt to print header if we have not done so.
@@ -390,9 +401,17 @@ export async function main(ns)
               ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_OWNED_AUGMENT_HEADER_DOUBLE_WIDE )
             else
               ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_OWNED_AUGMENT_HEADER )
-
           }
-
+        }
+        else if ( currentLineString.length + nextLineString.length <= maxLineLength )
+        {
+          currentLineString += currentLineString.length == 0 ? (FACTION_FIRST_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString) : (FACTION_SUBSEQUENT_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString)          
+          nextLineString = ""
+          entriesOnCurrentLine++
+          isPurchasedDoubleWide = entriesOnCurrentLine > 1 ? true : false
+        }
+        else
+        {
           ns.tprint( currentLineString )
           entriesOnCurrentLine = nextLineString.length ? 1 : 0
           currentLineString = (FACTION_FIRST_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString)
@@ -431,7 +450,6 @@ export async function main(ns)
         }
         else
         {
-
           isUnpurchasedDoubleWide = entriesOnCurrentLine > 1 ? true : false
 
           if ( !hasPrintedUnpurchasedSection )
@@ -455,8 +473,12 @@ export async function main(ns)
 
     if ( currentLineString.length > 0 )
     {
-      ns.tprint( currentLineString )
-      entriesOnCurrentLine = 0
+      if ( currentLineString != "" )
+      {
+        ns.tprint( currentLineString )
+        entriesOnCurrentLine = 0
+      }
+      
     }
       
 
