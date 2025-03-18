@@ -579,13 +579,13 @@ function PrintFactionPlayerRequirements( ns, requirements, isMemberOrInvited )
         if ( "employedBy" == conditionType )
         {
           conditionTypeString = "Employed By: " + requirement[ key ]
-          completed = requirement[ key ] in player.jobs
+          completed = isMemberOrInvited || requirement[ key ] in player.jobs
         }
           
         if ( "companyReputation" == conditionType )
         {
           conditionTypeString = (requirement[ key ] + " Reputation: " + requirement[ "reputation" ])
-          completed = ns.singularity.getCompanyRep( requirement[ key ] ) > requirement[ "reputation" ]
+          completed = isMemberOrInvited || ns.singularity.getCompanyRep( requirement[ key ] ) > requirement[ "reputation" ]
         }
           
 
