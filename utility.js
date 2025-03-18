@@ -20,7 +20,7 @@ export async function main(ns)
 
 export function AddCommasToNumber( number )
 {
-  let numberAsString = number.toString()
+  let numberAsString = Math.trunc(number).toString()
   let insertIndices = Array()
   for ( let i = numberAsString.length - 3; i > 0; i -= 3 )
   {
