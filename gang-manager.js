@@ -47,6 +47,7 @@ function GangEquipmentData( name, stats, tags )
   this.upgradeValue = statTotal
 }
 
+const GANG_KARMA_REQUIREMENT = -5400
 const GANG_MEMBER_EQUIPMENT_UPGRADE_MAX_ACCOUNT_SPEND_FRAC = 0.01
 const GANG_MEMBER_STEPDOWN_DBOUNCE = 60000
 const DEBUG_PRINT_GANG_MANAGER = false
@@ -58,6 +59,15 @@ export async function main(ns)
   const DEFAULT_HACKING_TASK  = "Ethical Hacking"
   const DEFAULT_COMBAT_TASK   = "Vigilante Justice"
   const GANG_MEMBER_NAME      = " Ganger "
+
+  const player = ns.getPlayer()
+
+  if ( player.karma > GANG_KARMA_REQUIREMENT )
+  {
+    ns.tprint( "Your " + Math.floor(player.karma) + " karma is not low enough to start a gang. You need " + GANG_KARMA_REQUIREMENT + " karma to start a gang." )
+    ns.tprint( "Ending script." )
+    return
+  }
 
   if ( !ns.gang.inGang )
   {
