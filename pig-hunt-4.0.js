@@ -44,6 +44,7 @@ totalGrowingTime, totalWeakeningTime, hackPercentage, requiredGrowThreads, requi
 const PIG_HUNT_DEBUG_PRINTS = false
 const GROW_THREAD_SECURITY_DELTA = 0.004 //This is a constant in the game.
 const ACCOUNT_HACK_ADJUSTMENT_PERCENTILE = 0.01
+const ACCOUNT_HACK_PERCENTILE = 0.2
 
 //The max percentage of ram threads allocated by this script can use on our home server, we always want head room to run other scripts.
 const HOME_SERVER_MAX_RAM_USAGE = 0.75
@@ -92,7 +93,7 @@ export async function main(ns)
     highestRamCost  = growScriptRam
   }
 
-  let accountHackPercentile = 0.2
+  let accountHackPercentile = ACCOUNT_HACK_PERCENTILE
   if ( ns.args.length > 0 )
     accountHackPercentile = ns.args[0]
 
@@ -330,6 +331,11 @@ export async function main(ns)
     {
       accountHackPercentile = Math.min( accountHackPercentile + ACCOUNT_HACK_ADJUSTMENT_PERCENTILE, 1.0 )
     } 
+    else if ( unallocatedThreadCount == 0 )
+    {
+      //Cover the case where more servers open up to hacking and we need to reduce our hack percentile to not overhack new servers.
+      accountHackPercentile = ACCOUNT_HACK_PERCENTILE
+    }
 
     if ( unallocatedThreadCount > 0 )
     {
