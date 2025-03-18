@@ -94,7 +94,7 @@ export async function main(ns)
   for ( let i = 0; i < potentialJobs.length; i++ )
   {
     const potentialJobData = potentialJobs[i]
-    ns.tprint( potentialJobData.jobInfo.name + " @ " + potentialJobData.companyName + " paying " + potentialJobData.jobInfo.salary )
+    ns.tprint( potentialJobData.jobInfo.name + " @ " + potentialJobData.companyName + " paying " + (potentialJobData.jobInfo.salary * player.mults.work_money) )
     ns.tprint("   |--Apply Args: [ run job-apply.js \"" + potentialJobData.companyName + "\" " + "\"" + potentialJobData.jobInfo.name + "\"" + " ]")
   }
 
