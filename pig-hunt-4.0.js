@@ -18,7 +18,7 @@ import { KillDuplicateScriptsOnHost } from "utility.js"
 
 /** @param {NS} ns */
 function ServerData( name, money, maxMoney, securityLevel, secMinLevel, hackingLevel, hackingTime, 
-totalGrowingTime, totalWeakeningTime, hackPercentage, requiredGrowThreads,requiredWeakenThreads, requiredHackThreads )
+totalGrowingTime, totalWeakeningTime, hackPercentage, requiredGrowThreads, requiredWeakenThreads, requiredHackThreads )
 {
   this.name                   = name
   this.money                  = money
@@ -45,7 +45,14 @@ const PIG_HUNT_DEBUG_PRINTS = false
 const GROW_THREAD_SECURITY_DELTA = 0.004 //This is a constant in the game.
 const ACCOUNT_HACK_ADJUSTMENT_PERCENTILE = 0.01
 
+//The max percentage of ram threads allocated by this script can use on our home server, we always want head room to run other scripts.
 const HOME_SERVER_MAX_RAM_USAGE = 0.75
+
+/*
+For non-hack operations, we will only run threads on our home server that will be complted within the given ms timeframe. This is to keep threads turning over
+to ensure any available hacks are executed promptly and don't hold up the server farm's thread allocation chain.
+*/
+const HOME_SERVER_MAX_TIME_UNTIL_SERVER_HACK = 60000
 
 export async function main(ns) 
 {
@@ -177,6 +184,10 @@ export async function main(ns)
       if ( sortedServer.requiredTotalThreads == 0 )
         continue
 
+      const hackingTime       = ns.getHackTime( sortedServer.name )
+      const growingTime       = ns.getGrowTime( sortedServer.name )
+      const weakeningTime     = ns.getWeakenTime( sortedServer.name )
+
       const scriptNameList = [ growScript, weakenScript, hackScript ]
       const scriptArgsList = [ [sortedServer.name], [sortedServer.name], [sortedServer.name] ]
 
@@ -232,13 +243,52 @@ export async function main(ns)
         }
       }          
 
-      // if we could run this on our home machine, try that before allocating to farm.
-      if ( sortedServer.requiredTotalThreads <= clampedAvailableHomeThreads )
+      let timeUntilHack = 0
+      if ( clampedGrowThreads > 0 )
+        timeUntilHack += growingTime 
+        
+      if ( clampedWeakenThreads > 0 )
+        timeUntilHack += weakeningTime
+
+      // if we could run this on our home machine, try that before allocating to farm, if the time to get the server to a hack is less than our max allowable time.
+      if ( (sortedServer.requiredTotalThreads <= clampedAvailableHomeThreads || remainingThreadsAvailable == 0) && timeUntilHack <= HOME_SERVER_MAX_TIME_UNTIL_SERVER_HACK)
       {
-        const threadCountList = [ clampedGrowThreads, clampedWeakenThreads, clampedHackThreads ]
-        clampedAvailableHomeThreads -= DistribueScriptsToHome( ns, scriptNameList, scriptArgsList, threadCountList )
-        continue
+        let homeClampedGrowThreads   = clampedGrowThreads
+        let homeClampedWeakenThreads = clampedWeakenThreads
+        let homeClampedHackThreads   = clampedHackThreads
+
+        let threadAllocationClampedOnHome = false
+        if ( sortedServer.requiredTotalThreads > clampedAvailableHomeThreads )
+        {
+          const threadsNeededScalar = clampedAvailableHomeThreads / sortedServer.requiredTotalThreads
+          homeClampedGrowThreads    = Math.round( clampedGrowThreads * threadsNeededScalar )
+          homeClampedWeakenThreads  = Math.round( clampedWeakenThreads * threadsNeededScalar )
+          homeClampedHackThreads    = Math.round( clampedHackThreads * threadsNeededScalar )
+
+          const postScaleTotalThreadsNeeded  = homeClampedWeakenThreads + homeClampedGrowThreads + homeClampedHackThreads
+
+          if ( postScaleTotalThreadsNeeded > clampedAvailableHomeThreads )
+            debugger
+
+          threadAllocationClampedOnHome = true
+        }
+
+        const threadCountList = [ homeClampedGrowThreads, homeClampedWeakenThreads, homeClampedHackThreads ]
+        const totalHomeThreadsAllocated = DistribueScriptsToHome( ns, scriptNameList, scriptArgsList, threadCountList )
+        
+        clampedGrowThreads    -= homeClampedGrowThreads
+        clampedWeakenThreads  -= homeClampedWeakenThreads
+        clampedHackThreads    -= homeClampedHackThreads
+        sortedServer.requiredTotalThreads -= totalHomeThreadsAllocated
+
+        clampedAvailableHomeThreads -= totalHomeThreadsAllocated
+
+        if ( !threadAllocationClampedOnHome )
+          continue
       }
+
+      if ( remainingThreadsAvailable <= 0 )
+        continue 
 
       //If we don't have enough threads, we want to scale down our thread requirements by a uniform scalar so that we still run some of each of our required threads.
       if ( sortedServer.requiredTotalThreads > remainingThreadsAvailable )
@@ -260,10 +310,6 @@ export async function main(ns)
         
       if ( threadsAllocated <= 0 && sortedServer.requiredTotalThreads > 0 )
         break
-
-      const hackingTime       = ns.getHackTime( sortedServer.name )
-      const growingTime       = ns.getGrowTime( sortedServer.name )
-      const weakeningTime     = ns.getWeakenTime( sortedServer.name )
 
       if ( hackingTime < shortestHackTime )
         shortestHackTime = hackingTime
