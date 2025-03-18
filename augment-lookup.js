@@ -121,6 +121,11 @@ export async function main(ns)
     ns.tprint( "Start with BruteSSH.exe after installing augmentations." )
   }
 
+  if ( augmentationName == "Neuroreceptor Management Implant" )
+  {
+    ns.tprint( "Removes productivity pentalty when you are not focusing on a task." )
+  }
+
   if ( augmentationName == "The Red Pill" )
   {
     ns.tprint( "Gives you access to World Demon so you can hack it and destroy the bitnode." )
