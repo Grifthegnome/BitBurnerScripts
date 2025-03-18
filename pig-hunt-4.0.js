@@ -52,7 +52,7 @@ const HOME_SERVER_MAX_RAM_USAGE = 0.75
 For non-hack operations, we will only run threads on our home server that will be complted within the given ms timeframe. This is to keep threads turning over
 to ensure any available hacks are executed promptly and don't hold up the server farm's thread allocation chain.
 */
-const HOME_SERVER_MAX_TIME_UNTIL_SERVER_HACK = 60000
+const HOME_SERVER_MAX_TIME_UNTIL_THREAD_FINISHED = 60000
 
 export async function main(ns) 
 {
@@ -243,15 +243,15 @@ export async function main(ns)
         }
       }          
 
-      let timeUntilHack = 0
-      if ( clampedGrowThreads > 0 )
-        timeUntilHack += growingTime 
+      let maxTimeUntilThreadFinished = 0
+      if ( clampedGrowThreads > maxTimeUntilThreadFinished )
+        maxTimeUntilThreadFinished = growingTime 
         
-      if ( clampedWeakenThreads > 0 )
-        timeUntilHack += weakeningTime
+      if ( clampedWeakenThreads > maxTimeUntilThreadFinished )
+        maxTimeUntilThreadFinished += weakeningTime
 
       // if we could run this on our home machine, try that before allocating to farm, if the time to get the server to a hack is less than our max allowable time.
-      if ( (sortedServer.requiredTotalThreads <= clampedAvailableHomeThreads || remainingThreadsAvailable == 0) && timeUntilHack <= HOME_SERVER_MAX_TIME_UNTIL_SERVER_HACK)
+      if ( (sortedServer.requiredTotalThreads <= clampedAvailableHomeThreads || remainingThreadsAvailable == 0) && maxTimeUntilThreadFinished <= HOME_SERVER_MAX_TIME_UNTIL_THREAD_FINISHED)
       {
         let homeClampedGrowThreads   = clampedGrowThreads
         let homeClampedWeakenThreads = clampedWeakenThreads
