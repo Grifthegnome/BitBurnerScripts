@@ -1,9 +1,9 @@
 import { KillDuplicateScriptsOnHost } from "utility.js"
 import { AddCommasToNumber } from "utility.js"
 
-function AccountRowData( startFillHeight, rowSymbol )
+function AccountRowData( rowValue, rowSymbol )
 {
-  this.startFillHeight = startFillHeight
+  this.rowValue = rowValue
   this.rowSymbol = rowSymbol
 }
 
@@ -27,7 +27,7 @@ export async function main(ns)
   let graphRows = Array()
   for ( let rowIndex = 0; rowIndex < MONEY_GRAPH_MAX_WIDTH; rowIndex++ )
   {
-    let rowData = new AccountRowData( MONEY_GRAPH_MAX_HEIGHT, MONEY_GRAPH_EMPTY_SYMBOL )
+    let rowData = new AccountRowData( 0, MONEY_GRAPH_EMPTY_SYMBOL )
     graphRows.push( rowData )
   }
 
@@ -46,30 +46,25 @@ export async function main(ns)
     {
       accountValueRange *= 10
       accountValuePerColumn  = accountValueRange / MONEY_GRAPH_MAX_HEIGHT
-      graphRows = ScaleExistingGraphToNewScale( graphRows, 10 )
     }
     else if ( currentAccountBalance <= accountValueRange / 10 )
     {
       accountValueRange /= 10
       accountValuePerColumn  = accountValueRange / MONEY_GRAPH_MAX_HEIGHT
-      graphRows = ScaleExistingGraphToNewScale( graphRows, -10 )
     }
 
     accountDelta = currentAccountBalance - lastAccountBalance
 
-    const columnHeight    = Math.round( currentAccountBalance / accountValuePerColumn )
-    const startFillHeight = MONEY_GRAPH_MAX_HEIGHT - columnHeight
-
     //Shift the columns with new data.
     if ( accountDelta > 0 )
     {
-      let newRowData = new AccountRowData( startFillHeight, MONEY_GRAPH_GAIN_SYMBOL )
+      let newRowData = new AccountRowData( currentAccountBalance, MONEY_GRAPH_GAIN_SYMBOL )
       graphRows.pop()
       graphRows.unshift(newRowData)
     }
     else
     {
-      let newRowData = new AccountRowData( startFillHeight, MONEY_GRAPH_LOSS_SYMBOL )
+      let newRowData = new AccountRowData( currentAccountBalance, MONEY_GRAPH_LOSS_SYMBOL )
       graphRows.pop()
       graphRows.unshift(newRowData)
     }  
@@ -81,7 +76,10 @@ export async function main(ns)
       for ( let rowIndex = 0; rowIndex < graphRows.length; rowIndex++ )
       {
         const graphRow = graphRows[rowIndex]
-        const startFillHeight = graphRow.startFillHeight
+        const rowValue = graphRow.rowValue
+
+        const columnHeight    = Math.round( rowValue / accountValuePerColumn )
+        const startFillHeight = MONEY_GRAPH_MAX_HEIGHT - columnHeight
 
         if ( startFillHeight <= columnIndex )
         {
@@ -97,84 +95,11 @@ export async function main(ns)
       ns.tprint( columnOutput )
     }
 
-    /*
-    for ( let rowIndex = 0; rowIndex < graphRows.length; rowIndex++ )
-    {
-      const graphRow = graphRows[rowIndex]
-      const startFillHeight = graphRow.startFillHeight
-
-      for ( let columnIndex = 0; columnIndex < MONEY_GRAPH_MAX_HEIGHT; columnIndex++ )
-      {
-
-      }
-
-      for ( let rowIndex = 0; rowIndex < MONEY_GRAPH_MAX_WIDTH; rowIndex++ )
-      {
-        let rowOutput = ""
-
-        if ( startFillHeight <= rowIndex )
-        {
-          if ( accountDelta > 0 )
-          {
-            graphRow.pop()
-            graphRow.unshift(MONEY_GRAPH_GAIN_SYMBOL)
-            graphRows[columnIndex] = graphRow
-          }
-          else
-          {
-            graphRow.pop()
-            graphRow.unshift(MONEY_GRAPH_LOSS_SYMBOL)
-            graphRows[columnIndex] = graphRow
-          }
-          
-        }
-        else
-        {
-          graphRow.pop()
-          graphRow.unshift(MONEY_GRAPH_EMPTY_SYMBOL)
-          graphRows[columnIndex] = graphRow
-        }
-        
-        //const rowOutput = graphColumn.join( "" )
-        ns.tprint( rowOutput )
-      }
-
-      
-    } 
-    */
-
     ns.tprint( "Account Value: " + AddCommasToNumber( currentAccountBalance ) + " | Delta: " + AddCommasToNumber( accountDelta ) + " | Graph Max Value: " + AddCommasToNumber( accountValueRange ) )
 
     lastAccountBalance = currentAccountBalance
 
     await ns.sleep( MONEY_UPDATE_INTERVAL )
   }
-
-}
-
-function ScaleExistingGraphToNewScale( graphRows, scalar )
-{
-  debugger
-
-  let shouldScaleDown   = false
-  let nonNegativeScalar = scalar
-
-  //To Do: Ensure we don't divide by zero.
-
-  if ( scalar < 0 )
-  {
-    shouldScaleDown = true
-    nonNegativeScalar = -scalar
-  }
-
-  for ( let rowIndex = 0; rowIndex < graphRows.length; rowIndex++ )
-  {
-    if ( shouldScaleDown )
-      graphRows[rowIndex].startFillHeight = Math.max( Math.round( graphRows[rowIndex].startFillHeight / nonNegativeScalar ), 1 )
-    else
-      graphRows[rowIndex].startFillHeight = Math.min( Math.round( graphRows[rowIndex].startFillHeight * nonNegativeScalar ), MONEY_GRAPH_MAX_HEIGHT )
-  }
-
-  return graphRows
 
 }
