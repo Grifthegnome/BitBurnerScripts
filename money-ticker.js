@@ -18,11 +18,14 @@ const MONEY_GRAPH_LOSS_SYMBOL = "!"
 /** @param {NS} ns */
 export async function main(ns) 
 {
-
-  debugger
-
   //Only allow one gang manager to run at a time.
   KillDuplicateScriptsOnHost( ns, ns.getRunningScript() )
+
+  if ( ns.args.length )
+  {
+    if( ns.args[0] == "quit" )
+      return
+  }
 
   let graphRows = Array()
   for ( let rowIndex = 0; rowIndex < MONEY_GRAPH_MAX_WIDTH; rowIndex++ )
