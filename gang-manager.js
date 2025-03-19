@@ -50,6 +50,7 @@ function GangEquipmentData( name, stats, tags )
 const GANG_KARMA_REQUIREMENT = -54000
 const GANG_MEMBER_EQUIPMENT_UPGRADE_MAX_ACCOUNT_SPEND_FRAC = 0.01
 const GANG_MEMBER_STEPDOWN_DBOUNCE = 60000
+const GANG_MAX_WANTED_PENALTY = 0.10
 const DEBUG_PRINT_GANG_MANAGER = false
 
 /** @param {NS} ns */
@@ -169,7 +170,7 @@ export async function main(ns)
       }
     }
 
-    const gangPriorityData = DetermineGangPriority( idealPriority, currentWantedGain, wantedLevelGainDeltaTrend, moneyDeltaTrend, hasMaxMembers )
+    const gangPriorityData = DetermineGangPriority( idealPriority, currentWantedGain, wantedLevelGainDeltaTrend, gangInfo.wantedPenalty, moneyDeltaTrend, hasMaxMembers )
 
     let taskPriorityArray = Array()
     for ( let taskIndex = 0; taskIndex < taskStatsArray.length; taskIndex++ )
@@ -612,7 +613,7 @@ function GenerateTaskHeuristicForMember( memberInfo, taskStats )
 
 }
 
-function DetermineGangPriority( idealPriority, wantedLevelGainRate, wantedLevelGainRateTrend, moneyTrend, hasMaxMembers )
+function DetermineGangPriority( idealPriority, wantedLevelGainRate, wantedLevelGainRateTrend, wantedPenalty, moneyTrend, hasMaxMembers )
 {
   /*
     1# always keep wanted level trending negative.
@@ -637,7 +638,7 @@ function DetermineGangPriority( idealPriority, wantedLevelGainRate, wantedLevelG
   }
   else
   {
-    if ( wantedLevelGainRate < 0 || wantedLevelGainRateTrend < 0 )
+    if ( (wantedLevelGainRate < 0 || wantedLevelGainRateTrend < 0) && (1 - wantedPenalty) <= GANG_MAX_WANTED_PENALTY )
     {
       if ( hasMaxMembers )
       {
