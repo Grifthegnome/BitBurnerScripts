@@ -363,9 +363,16 @@ export async function main(ns)
         const ascensionResult = ns.gang.getAscensionResult( memberInfo.name )
         if ( ascensionResult != undefined )
         {
+
           //Only ascend one gang member per gang tick.
           if ( AttemptGangMemberAscension( ns, memberInfo.name, ascensionResult ) )
+          {
+            //Set gang member to unassigned before ascending them to reduce the chances we massively inflate our wanted level.
+            ns.gang.setMemberTask( memberInfo.name, "Unassigned" )
+            
             break
+          }
+            
         }
       }
     }
