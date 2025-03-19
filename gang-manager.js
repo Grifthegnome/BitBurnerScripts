@@ -69,7 +69,7 @@ export async function main(ns)
     return
   }
 
-  if ( !ns.gang.inGang )
+  if ( !ns.gang.inGang() )
   {
     ns.tprint( "You are not in a gang, join a gang before running this script." )
     ns.tprint( "Ending script." )
