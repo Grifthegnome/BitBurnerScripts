@@ -47,7 +47,7 @@ function GangEquipmentData( name, stats, tags )
   this.upgradeValue = statTotal
 }
 
-const GANG_KARMA_REQUIREMENT = -5400
+const GANG_KARMA_REQUIREMENT = -54000
 const GANG_MEMBER_EQUIPMENT_UPGRADE_MAX_ACCOUNT_SPEND_FRAC = 0.01
 const GANG_MEMBER_STEPDOWN_DBOUNCE = 60000
 const DEBUG_PRINT_GANG_MANAGER = false
