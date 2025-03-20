@@ -147,17 +147,11 @@ export async function main(ns)
     //Write return on investment.
     await ns.write( HACKNET_ROI_REPORT_DATA_FILENAME, "Hacknet Return on Investment In: " + GetReadableDateDelta( timeToROI ), "w" )
 
+    //We should not buy anything if our spend is greatly exceeding our production.
     let lockSpendingUntilROI = totalSpend > HACKNET_INITIAL_INVESTMENT ? totalSpend > totalIncome || totalSpend > currentROIValuation : false
 
-    //We should not buy anything if our spend is greatly exceeding our production.
-    if ( totalIncome > 0 )
-    {
-      //Basically check to see if at the end of our designated time window, we've made any money for our investement.
-      if ( lockSpendingUntilROI )
-      {
-        continue
-      }
-    }
+    if ( totalIncome == 0 )
+      continue
 
     let hacknetUpgradeArray = Array()
 
@@ -179,9 +173,9 @@ export async function main(ns)
       const coreUpgradeCost  = ns.hacknet.getCoreUpgradeCost( i, 1 )
       //const cacheUpgradeCost = ns.hacknet.getCacheUpgradeCost( i, 1 )
 
-      let levelUpgradeProductionMultiplier  = 2//levelUpgradeCost
-      let ramUpgradeProductionMultiplier    = 2//ramUpgradeCost
-      let coreUpgradeProductionMultiplier   = 2//coreUpgradeCost
+      let levelUpgradeProductionMultiplier  = 0
+      let ramUpgradeProductionMultiplier    = 0
+      let coreUpgradeProductionMultiplier   = 0
 
       if ( nextLevel in levelIncomeData )
         levelUpgradeProductionMultiplier = levelIncomeData[ nextLevel]
@@ -202,20 +196,65 @@ export async function main(ns)
 
       if ( levelUpgradeROI > -1 )
       {
-        const levelUpgradeData = new HacknetUpgradeData( i, "level", nextLevel, levelUpgradeROI, levelUpgradeCost )
-        hacknetUpgradeArray.push( levelUpgradeData )
+        const postLevelUpgradeMaxROIIncomePossibleInTimeWindow = maxROISeconds * ( totalIncomeRate + postLevelUpgradeProduction )
+        const postLevelUpgradeROIValuation = totalIncome + postLevelUpgradeMaxROIIncomePossibleInTimeWindow
+        const postLevelUpgradeTotalSpend = totalSpend + levelUpgradeCost
+
+        const postLevelUpgradeTimeToROI = ( ( postLevelUpgradeTotalSpend - totalIncome ) / ( totalIncomeRate + postLevelUpgradeProduction ) ) * 1000
+
+        if ( postLevelUpgradeTimeToROI <= timeToROI )
+          debugger
+
+        const roiDelta = postLevelUpgradeROIValuation - currentROIValuation
+
+        if ( !lockSpendingUntilROI || levelUpgradeCost <= roiDelta )
+        {
+          const levelUpgradeData = new HacknetUpgradeData( i, "level", nextLevel, levelUpgradeROI, levelUpgradeCost )
+          hacknetUpgradeArray.push( levelUpgradeData )
+        }
+        
       }
       
       if ( ramUpgradeROI > -1 )
       {
-        const ramUpgradeData = new HacknetUpgradeData( i, "ram", nextRam, ramUpgradeROI, ramUpgradeCost )
-        hacknetUpgradeArray.push( ramUpgradeData )
+
+        const postRamUpgradeMaxROIIncomePossibleInTimeWindow = maxROISeconds * ( totalIncomeRate + postRamUpgradeProduction )
+        const postRamUpgradeROIValuation = totalIncome + postRamUpgradeMaxROIIncomePossibleInTimeWindow
+        const postRamUpgradeTotalSpend = totalSpend + ramUpgradeCost
+
+        const postRamUpgradeTimeToROI = ( ( postRamUpgradeTotalSpend - totalIncome ) / ( totalIncomeRate + postRamUpgradeProduction ) ) * 1000
+
+        if ( postRamUpgradeTimeToROI <= timeToROI )
+          debugger
+
+        const roiDelta = postRamUpgradeROIValuation - currentROIValuation
+
+        if ( !lockSpendingUntilROI || ramUpgradeCost <= roiDelta )
+        {
+          const ramUpgradeData = new HacknetUpgradeData( i, "ram", nextRam, ramUpgradeROI, ramUpgradeCost )
+          hacknetUpgradeArray.push( ramUpgradeData )
+        }
       }
       
       if ( coresUpgradeROI > -1 )
       {
-        const coresUpgradeData = new HacknetUpgradeData( i, "cores", nextCores, coresUpgradeROI, coreUpgradeCost )
-        hacknetUpgradeArray.push( coresUpgradeData )
+
+        const postCoresUpgradeMaxROIIncomePossibleInTimeWindow = maxROISeconds * ( totalIncomeRate + postCoresUpgradeProduction )
+        const postCoresUpgradeROIValuation = totalIncome + postCoresUpgradeMaxROIIncomePossibleInTimeWindow
+        const postCoresUpgradeTotalSpend = totalSpend + coreUpgradeCost
+
+        const postCoresUpgradeTimeToROI = ( ( postCoresUpgradeTotalSpend - totalIncome ) / ( totalIncomeRate + postCoresUpgradeProduction ) ) * 1000
+
+        if ( postCoresUpgradeTimeToROI <= timeToROI )
+          debugger
+
+        const roiDelta = postCoresUpgradeROIValuation - currentROIValuation 
+
+        if ( !lockSpendingUntilROI || coreUpgradeCost <= roiDelta )
+        {
+          const coresUpgradeData = new HacknetUpgradeData( i, "cores", nextCores, coresUpgradeROI, coreUpgradeCost )
+          hacknetUpgradeArray.push( coresUpgradeData )
+        }
       }
     }
     
@@ -228,8 +267,11 @@ export async function main(ns)
 
       const purchaseUpgradeROI = isFinite(nextHackNodePurchaseCost)  ? postPurchaseUpgradeProduction / nextHackNodePurchaseCost : -1
 
-      const purchaseUpgradeData = new HacknetUpgradeData( nodeCount, "purchase", nodeCount, purchaseUpgradeROI, nextHackNodePurchaseCost )
-      hacknetUpgradeArray.push( purchaseUpgradeData )
+      if ( !lockSpendingUntilROI )
+      {
+        const purchaseUpgradeData = new HacknetUpgradeData( nodeCount, "purchase", nodeCount, purchaseUpgradeROI, nextHackNodePurchaseCost )
+        hacknetUpgradeArray.push( purchaseUpgradeData )
+      }
 
     }
 
@@ -259,19 +301,15 @@ export async function main(ns)
               ns.hacknet.upgradeLevel( hacknetUpgrade.hacknetIndex, 1 )
 
               //Write upgrade info to data table so we can use it later.
-              if ( !(hacknetUpgrade.postUpgradeValue in levelIncomeData) )
-              {
-                const postUpgradeNodeStats    = ns.hacknet.getNodeStats( hacknetUpgrade.hacknetIndex )
-                const postPurchaseProduction  = postUpgradeNodeStats.production
-                //const productionDelta         = postPurchaseProduction - prePurchaseProduction
+              const postUpgradeNodeStats    = ns.hacknet.getNodeStats( hacknetUpgrade.hacknetIndex )
+              const postPurchaseProduction  = postUpgradeNodeStats.production
                 
-                const upgradeProductionMultiplier = prePurchaseProduction / postPurchaseProduction
+              const upgradeProductionMultiplier = prePurchaseProduction / postPurchaseProduction
 
-                levelIncomeData[ hacknetUpgrade.postUpgradeValue ] = upgradeProductionMultiplier
+              levelIncomeData[ hacknetUpgrade.postUpgradeValue ] = upgradeProductionMultiplier
 
-                const jsonString = JSON.stringify( levelIncomeData )
-                await ns.write( HACKNET_LEVEL_INCOME_DATA_FILENAME, jsonString, "w" )
-              }
+              const jsonString = JSON.stringify( levelIncomeData )
+              await ns.write( HACKNET_LEVEL_INCOME_DATA_FILENAME, jsonString, "w" )
 
               purchasedUpgrade = true
             }          
@@ -292,19 +330,15 @@ export async function main(ns)
               ns.hacknet.upgradeRam( hacknetUpgrade.hacknetIndex, 1 )
 
               //Write upgrade info to data table so we can use it later.
-              if ( !(hacknetUpgrade.postUpgradeValue in ramIncomeData) )
-              {
-                const postUpgradeNodeStats    = ns.hacknet.getNodeStats( hacknetUpgrade.hacknetIndex )
-                const postPurchaseProduction  = postUpgradeNodeStats.production
-                //const productionDelta         = postPurchaseProduction - prePurchaseProduction
+              const postUpgradeNodeStats    = ns.hacknet.getNodeStats( hacknetUpgrade.hacknetIndex )
+              const postPurchaseProduction  = postUpgradeNodeStats.production
                 
-                const upgradeProductionMultiplier = prePurchaseProduction / postPurchaseProduction
+              const upgradeProductionMultiplier = prePurchaseProduction / postPurchaseProduction
 
-                ramIncomeData[ hacknetUpgrade.postUpgradeValue ] = upgradeProductionMultiplier
+              ramIncomeData[ hacknetUpgrade.postUpgradeValue ] = upgradeProductionMultiplier
 
-                const jsonString = JSON.stringify( ramIncomeData )
-                await ns.write( HACKNET_RAM_INCOME_DATA_FILENAME, jsonString, "w" )
-              }
+              const jsonString = JSON.stringify( ramIncomeData )
+              await ns.write( HACKNET_RAM_INCOME_DATA_FILENAME, jsonString, "w" )
 
               purchasedUpgrade = true
             }
@@ -325,19 +359,15 @@ export async function main(ns)
               ns.hacknet.upgradeCore( hacknetUpgrade.hacknetIndex, 1 )
 
               //Write upgrade info to data table so we can use it later.
-              if ( !(hacknetUpgrade.postUpgradeValue in coreIncomeData) )
-              {
-                const postUpgradeNodeStats    = ns.hacknet.getNodeStats( hacknetUpgrade.hacknetIndex )
-                const postPurchaseProduction  = postUpgradeNodeStats.production
-                //const productionDelta         = postPurchaseProduction - prePurchaseProduction
+              const postUpgradeNodeStats    = ns.hacknet.getNodeStats( hacknetUpgrade.hacknetIndex )
+              const postPurchaseProduction  = postUpgradeNodeStats.production
                 
-                const upgradeProductionMultiplier = prePurchaseProduction / postPurchaseProduction
+              const upgradeProductionMultiplier = prePurchaseProduction / postPurchaseProduction
 
-                coreIncomeData[ hacknetUpgrade.postUpgradeValue ] = upgradeProductionMultiplier
+              coreIncomeData[ hacknetUpgrade.postUpgradeValue ] = upgradeProductionMultiplier
 
-                const jsonString = JSON.stringify( coreIncomeData )
-                await ns.write( HACKNET_CORES_INCOME_DATA_FILENAME, jsonString, "w" )
-              }
+              const jsonString = JSON.stringify( coreIncomeData )
+              await ns.write( HACKNET_CORES_INCOME_DATA_FILENAME, jsonString, "w" )
 
               purchasedUpgrade = true
             }
@@ -384,7 +414,7 @@ export async function main(ns)
 
     }
 
-    if ( !purchasedUpgrade && !upgradesRemaining && ns.hacknet.maxNumNodes() <= nodeCount )
+    if ( !purchasedUpgrade && !upgradesRemaining && ns.hacknet.maxNumNodes() <= nodeCount && !lockSpendingUntilROI )
     {
       ns.tprint( "Hack Net Nodes Fully Upgraded, Exiting Script." )
       return
