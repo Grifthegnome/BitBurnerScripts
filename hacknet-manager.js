@@ -9,7 +9,7 @@ const HACKNET_CORES_INCOME_DATA_FILENAME  = "hacknet_cores_income_data.txt"
 
 //Number of hours of income we will allow to earn a profit on our total hacknet spend.
 //If we can't recoup our spend and earn a profit within this time, we will pause spending.
-const HACKNET_MAX_RETURN_ON_INVEST_HOURS = 6
+const HACKNET_MAX_RETURN_ON_INVEST_HOURS = 3
 
 //How much money we are willing to invest up front, before we start to care about return on investment.
 const HACKNET_INITIAL_INVESTMENT = 5000000
@@ -150,12 +150,12 @@ export async function main(ns)
     //We should not buy anything if our spend is greatly exceeding our production.
     let lockSpendingUntilROI = totalSpend > HACKNET_INITIAL_INVESTMENT ? totalSpend > totalIncome || totalSpend > currentROIValuation : false
 
-    if ( totalIncome == 0 )
-      continue
+    //if ( totalIncome == 0 )
+     // continue
 
     let hacknetUpgradeArray = Array()
 
-    for ( let i = 0; i < nodeCount; i++ )
+    for ( let i = 0; i < nodeCount && !purchasedUpgrade; i++ )
     {
       const nodeStats = ns.hacknet.getNodeStats( i )
       const currentLevel = nodeStats.level
@@ -207,7 +207,7 @@ export async function main(ns)
 
         const roiDelta = postLevelUpgradeROIValuation - currentROIValuation
 
-        if ( !lockSpendingUntilROI || levelUpgradeCost <= roiDelta )
+        if ( !lockSpendingUntilROI || levelUpgradeCost <= roiDelta || postLevelUpgradeROIValuation > postLevelUpgradeTotalSpend )
         {
           const levelUpgradeData = new HacknetUpgradeData( i, "level", nextLevel, levelUpgradeROI, levelUpgradeCost )
           hacknetUpgradeArray.push( levelUpgradeData )
@@ -229,7 +229,7 @@ export async function main(ns)
 
         const roiDelta = postRamUpgradeROIValuation - currentROIValuation
 
-        if ( !lockSpendingUntilROI || ramUpgradeCost <= roiDelta )
+        if ( !lockSpendingUntilROI || ramUpgradeCost <= roiDelta || postRamUpgradeROIValuation > postRamUpgradeTotalSpend )
         {
           const ramUpgradeData = new HacknetUpgradeData( i, "ram", nextRam, ramUpgradeROI, ramUpgradeCost )
           hacknetUpgradeArray.push( ramUpgradeData )
@@ -250,7 +250,7 @@ export async function main(ns)
 
         const roiDelta = postCoresUpgradeROIValuation - currentROIValuation 
 
-        if ( !lockSpendingUntilROI || coreUpgradeCost <= roiDelta )
+        if ( !lockSpendingUntilROI || coreUpgradeCost <= roiDelta || postCoresUpgradeROIValuation > postCoresUpgradeTotalSpend )
         {
           const coresUpgradeData = new HacknetUpgradeData( i, "cores", nextCores, coresUpgradeROI, coreUpgradeCost )
           hacknetUpgradeArray.push( coresUpgradeData )
@@ -312,6 +312,7 @@ export async function main(ns)
               await ns.write( HACKNET_LEVEL_INCOME_DATA_FILENAME, jsonString, "w" )
 
               purchasedUpgrade = true
+              continue
             }          
           }
         }
@@ -341,6 +342,7 @@ export async function main(ns)
               await ns.write( HACKNET_RAM_INCOME_DATA_FILENAME, jsonString, "w" )
 
               purchasedUpgrade = true
+              continue
             }
           }
         }
@@ -370,6 +372,7 @@ export async function main(ns)
               await ns.write( HACKNET_CORES_INCOME_DATA_FILENAME, jsonString, "w" )
 
               purchasedUpgrade = true
+              continue
             }
           }
         }
@@ -408,6 +411,7 @@ export async function main(ns)
           }
 
           purchasedUpgrade = true
+          continue
         }
 
       }
