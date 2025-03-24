@@ -76,6 +76,9 @@ function ScanNetLayer( ns, hostServer, parentServer, searchDepth, priorString )
 
     const serverInfo = ns.getServer( currentConnection )
 
+    const ramUsed       = ns.getServerUsedRam( currentConnection )
+    const ramLimit      = ns.getServerMaxRam( currentConnection )
+
     //serverInfo.organizationName
     //serverInfo.hasRootAccess
     //serverInfo.backdoorInstalled
@@ -112,7 +115,8 @@ function ScanNetLayer( ns, hostServer, parentServer, searchDepth, priorString )
         " @" + serverInfo.ip +
         " | Root: " + serverInfo.hasAdminRights +
         " | Hackable: " + canHack +
-        " | Backdoor: " + serverInfo.backdoorInstalled
+        " | Backdoor: " + serverInfo.backdoorInstalled +
+        " | RAM: " + ramUsed + "/" + ramLimit
 
         ns.tprint( serverDetail )
       }
@@ -124,7 +128,8 @@ function ScanNetLayer( ns, hostServer, parentServer, searchDepth, priorString )
         " @" + serverInfo.ip +
         " | Root: " + serverInfo.hasAdminRights +
         " | Hackable: " + canHack +
-        " | Backdoor: " + serverInfo.backdoorInstalled
+        " | Backdoor: " + serverInfo.backdoorInstalled + 
+        " | RAM: " + ramUsed + "/" + ramLimit
 
         ns.tprint( serverDetail )
       }
@@ -141,7 +146,8 @@ function ScanNetLayer( ns, hostServer, parentServer, searchDepth, priorString )
         " @" + serverInfo.ip +
         " | Root: " + serverInfo.hasAdminRights +
         " | Hackable: " + canHack +
-        " | Backdoor: " + serverInfo.backdoorInstalled
+        " | Backdoor: " + serverInfo.backdoorInstalled +
+        " | RAM: " + ramUsed + "/" + ramLimit
 
         ns.tprint( serverDetail )
       }
@@ -154,7 +160,8 @@ function ScanNetLayer( ns, hostServer, parentServer, searchDepth, priorString )
         " @" + serverInfo.ip +
         " | Root: " + serverInfo.hasAdminRights +
         " | Hackable: " + canHack +
-        " | Backdoor: " + serverInfo.backdoorInstalled
+        " | Backdoor: " + serverInfo.backdoorInstalled +
+        " | RAM: " + ramUsed + "/" + ramLimit
 
         ns.tprint( serverDetail )
       }      
