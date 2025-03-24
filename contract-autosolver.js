@@ -3,6 +3,7 @@ import { FindFirstServerWithFile } from "utility.js"
 
 import { SolveEncryptionII } from "solver-encryptionII.js"
 import { GenerateIPAdressesFromKey } from "solver-generate-ip.js"
+import { SolveJumpingGame } from "solver-jumping-game-II.js"
 
 /** @param {NS} ns */
 export async function main(ns) {
@@ -63,7 +64,19 @@ function GetSolutionForContractType( ns, type, contract, contractHost )
         ns.tprint( "Failed to solve contract: " + contract + " check Generate IP Addresses solution solver-generate-ip.js" )
 
     break
-  }
-  
 
+    case "Array Jumping Game II":
+
+      data = ns.codingcontract.getData( contract, contractHost )
+      solution = SolveJumpingGame( data )
+
+      success = ns.codingcontract.attempt( solution, contract, contractHost )
+
+      if ( success )
+        ns.tprint( "Solved contract: " + contract )
+      else
+        ns.tprint( "Failed to solve contract: " + contract + " check Jumping Game II solution solver-jumping-game-II.js" )
+
+    break
+  }
 }

@@ -12,8 +12,20 @@ Assuming you are initially positioned at the start of the array, determine the m
 
 export async function main(ns) 
 {
-  const jumpArray = ns.args[0]
+  const jumpString = ns.args[0]
+
+  let jumpArray = Array()
+  for ( let i = 0; i < jumpString.length; i++ )
+  {
+    if ( jumpString[i] != "," )
+      jumpArray.push( Number( jumpString[i] ) )
+  }
+
   const result = SolveJumpingGame( jumpArray )
+
+   ns.tprint( result )
+
+  return result
 }
 
 export function SolveJumpingGame( jumpArray )
@@ -29,26 +41,64 @@ export function SolveJumpingGame( jumpArray )
     in the jump range.
   */
 
-  debugger
-
   if ( jumpArray.length <= 0 )
     return 0
 
-  let jumpIndiceArrays = Array()
-  jumpIndiceArrays.push( [0] )
+  let currentJumpTree = Array()
+  currentJumpTree.push( 0 )
 
-  let possibleJumps = BuildArraysForJump( jumpArray, 0 )
+  let possibleJumps = BuildIndexArrayForJump( jumpArray, 0 )
 
-  for ( let i = 0; i > possibleJumps.length; i++ )
-  {
-    let nextJumpSet = jumpIndiceArrays.slice().push( possibleJumps[i] )
-    nextJumpSet.push( nextJumpSet )
+  let smallestJumpCount = jumpArray.length + 1
 
-  }
+  let newSmallestJumpCount = BuildAndEvaluateJumpTree( jumpArray, currentJumpTree, possibleJumps, smallestJumpCount )
+
+  if ( smallestJumpCount == newSmallestJumpCount )
+    return 0
+    
+  return newSmallestJumpCount
 
 }
 
-function BuildArraysForJump( jumpArray, startIndex )
+function BuildAndEvaluateJumpTree( jumpArray, currentJumpTree, possibleJumps, smallestJumpCount )
+{
+  let newSmallestJumpCount = smallestJumpCount
+  for ( let i = 0; i < possibleJumps.length; i++ )
+  {
+    /*
+    From our current position we need to get all possible jumps.
+    We then need to follow each jump chain to it's conclusion to determine if it reaches the end of the jump array.
+    If it does, we need to see if the total number of jumps is better than our current count.
+    */
+
+    let nextJumpTree = currentJumpTree.slice()
+    nextJumpTree.push( possibleJumps[i] )
+
+    if ( possibleJumps[i] + jumpArray[ possibleJumps[i] ] >= jumpArray.length )
+    {
+      if ( nextJumpTree.length < newSmallestJumpCount )
+        newSmallestJumpCount = nextJumpTree.length
+      
+      continue
+    }
+ 
+    let nextPossibleJumps = BuildIndexArrayForJump( jumpArray, possibleJumps[i] )
+
+    nextPossibleJumps.sort( (jumpIndexA, jumpIndexB) => jumpArray[jumpIndexB] - jumpArray[jumpIndexA] )
+
+    //We need to check if the jump tree has reached the end of the jump array and then see if the number of jumps is less than our best current jump count.
+
+    let subTreeSmallestJumpCount = BuildAndEvaluateJumpTree( jumpArray, nextJumpTree, nextPossibleJumps, smallestJumpCount )
+
+    if ( subTreeSmallestJumpCount < newSmallestJumpCount )
+      newSmallestJumpCount = subTreeSmallestJumpCount
+
+  }
+
+  return newSmallestJumpCount
+}
+
+function BuildIndexArrayForJump( jumpArray, startIndex )
 {
   if ( startIndex >= jumpArray.length )
     console.error("Invalid indices")
@@ -60,6 +110,10 @@ function BuildArraysForJump( jumpArray, startIndex )
   for ( let i = 1; i <= maxJumpLength; i++ )
   {
     if ( startIndex + i >= jumpArray.length )
+      continue
+
+    //If the index has a jump length of 0, skip it.
+    if ( jumpArray[ startIndex + i ] == 0 )
       continue
 
     validJumpIndices.push( startIndex + i )
