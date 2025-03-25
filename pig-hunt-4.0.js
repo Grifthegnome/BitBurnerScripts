@@ -41,8 +41,15 @@ totalGrowingTime, totalWeakeningTime, hackPercentage, requiredGrowThreads, requi
   this.heuristic      = this.requiredHackThreads > 0 ? -this.hackingTime : this.totalGrowingTime + this.totalWeakeningTime //GetTimeForEarningRatio( this.totalTime, maxMoney * hackPercentage )
 }
 
+function GrowthThreadData( requiredThreads, activeThreads )
+{
+  this.requiredThreads = requiredThreads
+  this.activeThreads = activeThreads
+}
+
 const PIG_HUNT_DEBUG_PRINTS = false
 const GROW_THREAD_SECURITY_DELTA = 0.004 //This is a constant in the game.
+const HACK_THREAD_SECURITY_DELTA = 0.002 //This is an aproximation.
 const ACCOUNT_HACK_ADJUSTMENT_PERCENTILE = 0.01
 const ACCOUNT_HACK_PERCENTILE = 0.2
 
@@ -197,18 +204,18 @@ export async function main(ns)
       let clampedHackThreads    = sortedServer.requiredHackThreads
 
       //Ensure max strength hack.
-      if ( maxNetworkThreadsPossible < clampedHackThreads )
+      if ( maxNetworkThreadsPossible < clampedHackThreads + clampedWeakenThreads && clampedHackThreads > 0 )
       {
         //we only want to hack when we can hack at full thread power, or we are using all our current resources to the best hack we can.
         if ( maxNetworkThreadsPossible > remainingThreadsAvailable )
         {
 
           //If we can run the threads on our home server to unblock our server farm, do it.
-          if ( clampedAvailableHomeThreads >= clampedHackThreads )
+          if ( clampedAvailableHomeThreads >= clampedHackThreads + clampedWeakenThreads && clampedHackThreads > 0 )
           {
-            const homeScriptNameList = [ hackScript ]
-            const homeScriptArgsList = [ [sortedServer.name] ]
-            const homeThreadCountList = [ clampedHackThreads ]
+            const homeScriptNameList = [ hackScript, weakenScript ]
+            const homeScriptArgsList = [ [sortedServer.name], [sortedServer.name] ]
+            const homeThreadCountList = [ clampedHackThreads, clampedWeakenThreads ]
 
             clampedAvailableHomeThreads -= DistribueScriptsToHome( ns, homeScriptNameList, homeScriptArgsList, homeThreadCountList )
             continue
@@ -223,14 +230,14 @@ export async function main(ns)
       }
       else
       {
-        if ( remainingThreadsAvailable < clampedHackThreads )
+        if ( remainingThreadsAvailable < clampedHackThreads + clampedWeakenThreads && clampedHackThreads > 0 )
         {
           //If we can run the threads on our home server to unblock our server farm, do it.
           if ( clampedAvailableHomeThreads >= clampedHackThreads )
           {
-            const homeScriptNameList = [ hackScript ]
-            const homeScriptArgsList = [ [sortedServer.name] ]
-            const homeThreadCountList = [ clampedHackThreads ]
+            const homeScriptNameList = [ hackScript, weakenScript ]
+            const homeScriptArgsList = [ [sortedServer.name], [sortedServer.name] ]
+            const homeThreadCountList = [ clampedHackThreads, clampedWeakenThreads ]
 
             clampedAvailableHomeThreads -= DistribueScriptsToHome( ns, homeScriptNameList, homeScriptArgsList, homeThreadCountList )
             continue
@@ -466,13 +473,31 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
         const securityLevel     = ns.getServerSecurityLevel( connectionName )
         const secMinLevel       = ns.getServerMinSecurityLevel( connectionName )
 
-        const requiredGrowThreads   = CalculateGrowthThreads( ns, connectionName, growScript )
-        const requiredWeakenThreads = CalculateWeakenThreads( ns, connectionName, weakenScript, requiredGrowThreads )
+        //We can run into late-game situations where our min hack percentile is larger than our target hack percentile, unless we account for this small acounts will never allocate hacking threads.
+        const moneyPerHack = maxMoney * hackPercentage
+        const targetHackPercentile = hackPercentage > accountHackPercentile ? hackPercentage : accountHackPercentile
+
+        let threadsToHack = moneyPerHack > 0 ? Math.floor( maxMoney * targetHackPercentile / moneyPerHack ) : 0
+        let currentActiveHackThreads = 0
+        //Don't assign hacking threads if the server isn't ready to hack
+        if ( securityLevel > secMinLevel || moneyAvailable < maxMoney )
+        {
+          threadsToHack = 0
+        }
+        else
+        {
+          if ( threadsToHack > 0 )
+          {
+            currentActiveHackThreads = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", hackScript, [connectionName] ) + GetTotalThreadsRunningScriptOnHome( ns, hackScript, [connectionName] )
+            threadsToHack = Math.max( 0, threadsToHack - currentActiveHackThreads )
+          }
+        }
+
+        const growthThreadData   = CalculateGrowthThreads( ns, connectionName, growScript )
+        const requiredWeakenThreads = CalculateWeakenThreads( ns, connectionName, weakenScript, growthThreadData.requiredThreads + growthThreadData.activeThreads, threadsToHack + currentActiveHackThreads )
 
         const weakenTimeMult = requiredWeakenThreads > 0 ? Math.max( 1, Math.round( requiredWeakenThreads / availableThreads ) ) : 0
-        //const postWeakenThreadRemainder = Math.max( 1, availableThreads - requiredWeakenThreads )
-        //const growTimeMult   = Math.round( requiredGrowThreads / postWeakenThreadRemainder )
-        const growTimeMult   = requiredGrowThreads > 0 ? Math.max( 1, Math.round( requiredGrowThreads / availableThreads ) ) : 0
+        const growTimeMult   = growthThreadData.requiredThreads > 0 ? Math.max( 1, Math.round( growthThreadData.requiredThreads / availableThreads ) ) : 0
 
         //Assuming we have enough threads, this would be done in parallel.
         const totalWeakeningTime  = weakeningTime * weakenTimeMult
@@ -483,30 +508,11 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
         if ( PIG_HUNT_DEBUG_PRINTS )
           ns.tprint( connectionName + " Time to Money Ratio: " + timeToMoneyRatio )
 
-        const moneyPerHack = maxMoney * hackPercentage
-
-        //We can run into late-game situations where our min hack percentile is larger than our target hack percentile, unless we account for this small acounts will never allocate hacking threads.
-        const targetHackPercentile = hackPercentage > accountHackPercentile ? hackPercentage : accountHackPercentile
-
-        let threadsToHack = moneyPerHack > 0 ? Math.floor( maxMoney * targetHackPercentile / moneyPerHack ) : 0
-
-        //Don't assign hacking threads if the server isn't ready to hack
-        if ( securityLevel > secMinLevel || moneyAvailable < maxMoney )
-        {
-          threadsToHack = 0
-        }
-        else
-        {
-          if ( threadsToHack > 0 )
-          {
-            const currentActiveHackThreads = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", hackScript, [connectionName] ) + GetTotalThreadsRunningScriptOnHome( ns, hackScript, [connectionName] )
-            threadsToHack = Math.max( 0, threadsToHack - currentActiveHackThreads )
-          }
-        }
+        
           
 
         //THIS IS MOST LIKELY WRONG AND WE SHOULD RE-MATH IT.
-        const totalThreadCount = threadsToHack + requiredGrowThreads + requiredWeakenThreads
+        const totalThreadCount = threadsToHack + growthThreadData.requiredThreads + requiredWeakenThreads
 
         if ( PIG_HUNT_DEBUG_PRINTS )
           ns.tprint( "Thread Estimation for " + connectionName + ": " + totalThreadCount )
@@ -532,7 +538,7 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
           totalGrowingTime,
           totalWeakeningTime,
           hackPercentage,
-          requiredGrowThreads,
+          growthThreadData.requiredThreads,
           requiredWeakenThreads,
           threadsToHack
           )
@@ -596,14 +602,19 @@ function CalculateGrowthThreads( ns, targetServer, growScript )
   {
     const currentActiveGrowThreads = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", growScript, [targetServer] ) + GetTotalThreadsRunningScriptOnHome( ns, growScript, [targetServer] )
     const reqGrowthThreads = Math.max( 0, growthThreads - currentActiveGrowThreads )  
-    return reqGrowthThreads
+    
+    const growthThreadData = new GrowthThreadData( reqGrowthThreads, currentActiveGrowThreads )
+
+    return growthThreadData
   }
       
-  return growthThreads
+  const growthThreadData = new GrowthThreadData( growthThreads, 0 )
+
+  return growthThreadData
 
 }
 
-function CalculateWeakenThreads( ns, targetServer, weakenScript, growThreadCount )
+function CalculateWeakenThreads( ns, targetServer, weakenScript, growThreadCount, hackThreadCount )
 {
   const minSec = ns.getServerMinSecurityLevel( targetServer )
   const curSec = ns.getServerSecurityLevel( targetServer )
@@ -614,7 +625,9 @@ function CalculateWeakenThreads( ns, targetServer, weakenScript, growThreadCount
 
   const securityPostGrow = Math.min( curSec + ( GROW_THREAD_SECURITY_DELTA * growThreadCount ), highestSecurityVal )
 
-  const securityDelta = securityPostGrow - minSec
+  const securityPostHack = Math.min( securityPostGrow + ( HACK_THREAD_SECURITY_DELTA * hackThreadCount ), highestSecurityVal )
+
+  const securityDelta = securityPostHack - minSec
 
   const weakenThreads = Math.ceil( securityDelta / ns.weakenAnalyze(1,1) )
 
