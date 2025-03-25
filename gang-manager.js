@@ -29,11 +29,12 @@ function GangMemberTaskHeuristic( heuristic, memberInfo )
   this.memberInfo = memberInfo
 }
 
-function GangEquipmentData( name, stats, tags )
+function GangEquipmentData( name, stats, tags, cost )
 {
   this.name     = name
   this.stats    = stats
   this.tags     = tags
+  this.cost     = cost
 
   const statKeys = Object.keys( stats )
 
@@ -44,7 +45,7 @@ function GangEquipmentData( name, stats, tags )
     statTotal += stats[key]
   }
 
-  this.upgradeValue = statTotal
+  this.upgradeValue = statTotal / cost
 }
 
 const GANG_KARMA_REQUIREMENT = -54000
@@ -445,14 +446,16 @@ function BuildGangEquipmentTables( ns )
 
     if ( equipmentType in equipmentTableHash )
     {
+      const cost = ns.gang.getEquipmentCost( equipmentName )
       const equipmentTags = DetermineEquipmentTags( equipmentStats )
-      const equipmentEntry = new GangEquipmentData( equipmentName, equipmentStats, equipmentTags )
+      const equipmentEntry = new GangEquipmentData( equipmentName, equipmentStats, equipmentTags, cost )
       equipmentTableHash[equipmentType].push( equipmentEntry )
     }
     else
     {
+      const cost = ns.gang.getEquipmentCost( equipmentName )
       const equipmentTags = DetermineEquipmentTags( equipmentStats )
-      const equipmentEntry = new GangEquipmentData( equipmentName, equipmentStats, equipmentTags )
+      const equipmentEntry = new GangEquipmentData( equipmentName, equipmentStats, equipmentTags, cost )
       let equipmentTypeArray = Array( equipmentEntry )
       equipmentTableHash[equipmentType] = equipmentTypeArray
     }
@@ -588,6 +591,11 @@ function AttemptGangMemberUpgrade( ns, memberInfo, upgradeList )
         //Purchase Sucessful.
         return true
       }
+    }
+    else
+    {
+      //If we can't buy the upgrade we want, don't buy anything.
+      return false
     }
   }
 
