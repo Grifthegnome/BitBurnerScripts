@@ -127,6 +127,8 @@ export async function main(ns)
   while ( true )
   {
 
+    //let serverSearchTime = new Date()
+
     if ( PIG_HUNT_DEBUG_PRINTS )
     {
       ns.tprint("\n")
@@ -217,11 +219,14 @@ export async function main(ns)
             const homeScriptArgsList = [ [sortedServer.name], [sortedServer.name] ]
             const homeThreadCountList = [ clampedHackThreads, clampedWeakenThreads ]
 
+            //ns.tprint( serverSearchTime.getTime() + "Home Machine PRIORITY: Starting " + ( clampedHackThreads + clampedWeakenThreads ) + " thread of " + sortedServer.requiredTotalThreads + " hack on " + sortedServer.name )
+
             clampedAvailableHomeThreads -= DistribueScriptsToHome( ns, homeScriptNameList, homeScriptArgsList, homeThreadCountList )
             continue
           }
           else
           {
+            //ns.tprint( serverSearchTime.getTime() + sortedServer.name + " is ready to hack, delaying due to lack of threads." )
             //Skip all lower priorty servers till we can hack this one.
             totalNetworkThreadsAllocated = totalNetworkThreadsAvailable
             break
@@ -239,11 +244,14 @@ export async function main(ns)
             const homeScriptArgsList = [ [sortedServer.name], [sortedServer.name] ]
             const homeThreadCountList = [ clampedHackThreads, clampedWeakenThreads ]
 
+             //ns.tprint( serverSearchTime.getTime() + "Home Machine PRIORITY: Starting " + ( clampedHackThreads + clampedWeakenThreads ) + " thread of " + sortedServer.requiredTotalThreads + " hack on " + sortedServer.name )
+
             clampedAvailableHomeThreads -= DistribueScriptsToHome( ns, homeScriptNameList, homeScriptArgsList, homeThreadCountList )
             continue
           }
           else
           {
+            //ns.tprint( serverSearchTime.getTime() + sortedServer.name + " is ready to hack, delaying due to lack of threads." )
             //Skip all lower priorty servers till we can hack this one.
             totalNetworkThreadsAllocated = totalNetworkThreadsAvailable
             break
@@ -281,6 +289,9 @@ export async function main(ns)
           threadAllocationClampedOnHome = true
         }
 
+        //if ( homeClampedHackThreads > 0 )
+        //  ns.tprint( serverSearchTime.getTime() + "Home Machine: Starting " + ( homeClampedHackThreads + homeClampedWeakenThreads ) + " thread of " + sortedServer.requiredTotalThreads +  " hack on " + sortedServer.name )
+
         const threadCountList = [ homeClampedGrowThreads, homeClampedWeakenThreads, homeClampedHackThreads ]
         const totalHomeThreadsAllocated = DistribueScriptsToHome( ns, scriptNameList, scriptArgsList, threadCountList )
         
@@ -298,6 +309,10 @@ export async function main(ns)
       if ( remainingThreadsAvailable <= 0 )
         continue 
 
+      //Don't allow us to continue if we can't run a full hack.
+      if ( remainingThreadsAvailable < clampedHackThreads + clampedWeakenThreads && clampedHackThreads > 0 )
+        continue
+
       //If we don't have enough threads, we want to scale down our thread requirements by a uniform scalar so that we still run some of each of our required threads.
       if ( sortedServer.requiredTotalThreads > remainingThreadsAvailable )
       {
@@ -314,6 +329,9 @@ export async function main(ns)
 
       const threadCountList = [ clampedGrowThreads, clampedWeakenThreads, clampedHackThreads ]
     
+      //if ( clampedHackThreads )
+      //  ns.tprint( serverSearchTime.getTime() + "Main Farm: Starting " + ( clampedHackThreads + clampedWeakenThreads ) + " thread of " + sortedServer.requiredTotalThreads +  " hack on " + sortedServer.name )
+
       const threadsAllocated    = DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList )
         
       if ( threadsAllocated <= 0 && sortedServer.requiredTotalThreads > 0 )
@@ -488,7 +506,7 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
         {
           if ( threadsToHack > 0 )
           {
-            currentActiveHackThreads = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", hackScript, [connectionName] ) + GetTotalThreadsRunningScriptOnHome( ns, hackScript, [connectionName] )
+            currentActiveHackThreads = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", hackScript, [connectionName] ) + GetTotalThreadsRunningScriptOnHome( ns, hackScript, [connectionName] )            
             threadsToHack = Math.max( 0, threadsToHack - currentActiveHackThreads )
           }
         }
@@ -500,7 +518,7 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
         const growTimeMult   = growthThreadData.requiredThreads > 0 ? Math.max( 1, Math.round( growthThreadData.requiredThreads / availableThreads ) ) : 0
 
         //Assuming we have enough threads, this would be done in parallel.
-        const totalWeakeningTime  = weakeningTime * weakenTimeMult
+        const totalWeakeningTime  = currentActiveHackThreads > 0 ? 0 : weakeningTime * weakenTimeMult
         const totalGrowingTime    = growingTime * growTimeMult
 
         const timeToMoneyRatio = GetTimeForEarningRatio( hackingTime + totalGrowingTime + totalWeakeningTime, maxMoney * hackPercentage )
