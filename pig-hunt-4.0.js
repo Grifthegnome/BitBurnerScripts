@@ -517,8 +517,10 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
         if ( PIG_HUNT_DEBUG_PRINTS )
           ns.tprint( "Thread Estimation for " + connectionName + ": " + totalThreadCount )
         
+        let needsThreads = growthThreadData.requiredThreads > 0 || requiredWeakenThreads > 0 || threadsToHack > 0
+
         //Never Return our Home computer
-        if ( connectionName != "home")
+        if ( connectionName != "home" && needsThreads )
         {
           if ( PIG_HUNT_DEBUG_PRINTS )
           {
