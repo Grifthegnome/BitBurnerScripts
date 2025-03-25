@@ -233,7 +233,7 @@ export async function main(ns)
         if ( remainingThreadsAvailable < clampedHackThreads + clampedWeakenThreads && clampedHackThreads > 0 )
         {
           //If we can run the threads on our home server to unblock our server farm, do it.
-          if ( clampedAvailableHomeThreads >= clampedHackThreads )
+          if ( clampedAvailableHomeThreads >= clampedHackThreads + clampedWeakenThreads && clampedHackThreads > 0 )
           {
             const homeScriptNameList = [ hackScript, weakenScript ]
             const homeScriptArgsList = [ [sortedServer.name], [sortedServer.name] ]
