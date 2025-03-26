@@ -171,7 +171,8 @@ export async function main(ns)
       }
     }
 
-    const gangPriorityData = DetermineGangPriority( idealPriority, currentWantedGain, wantedLevelGainDeltaTrend, gangInfo.wantedPenalty, moneyDeltaTrend, hasMaxMembers )
+    let isNewGang = gangInfo.wantedPenalty == 0.5 && gangInfo.wantedLevel == 1.0
+    const gangPriorityData = DetermineGangPriority( idealPriority, currentWantedGain, wantedLevelGainDeltaTrend, gangInfo.wantedPenalty, moneyDeltaTrend, hasMaxMembers, isNewGang )
 
     let taskPriorityArray = Array()
     for ( let taskIndex = 0; taskIndex < taskStatsArray.length; taskIndex++ )
@@ -628,7 +629,7 @@ function GenerateTaskHeuristicForMember( memberInfo, taskStats )
 
 }
 
-function DetermineGangPriority( idealPriority, wantedLevelGainRate, wantedLevelGainRateTrend, wantedPenalty, moneyTrend, hasMaxMembers )
+function DetermineGangPriority( idealPriority, wantedLevelGainRate, wantedLevelGainRateTrend, wantedPenalty, moneyTrend, hasMaxMembers, isNewGang )
 {
   /*
     1# always keep wanted level trending negative.
@@ -653,7 +654,13 @@ function DetermineGangPriority( idealPriority, wantedLevelGainRate, wantedLevelG
   }
   else
   {
-    if ( (wantedLevelGainRate < 0 || wantedLevelGainRateTrend < 0) && (1 - wantedPenalty) <= GANG_MAX_WANTED_PENALTY )
+    /*
+    We have a known issue where when a gang is founded, the wanted pentalty is 50%. Unless you take illegal action, this percent never changes,
+    which causes the gang to get stuck in wanted level reduction mode.
+
+    If our gang is brand new, we need to do some initial crime, just to get our wanted level penalty unfrozen.
+    */
+    if ( (wantedLevelGainRate < 0 || wantedLevelGainRateTrend < 0) && (1 - wantedPenalty) <= GANG_MAX_WANTED_PENALTY && !isNewGang )
     {
       if ( hasMaxMembers )
       {
