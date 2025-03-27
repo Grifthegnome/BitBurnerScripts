@@ -205,6 +205,7 @@ export async function main(ns)
       let clampedWeakenThreads  = sortedServer.requiredWeakenThreads
       let clampedHackThreads    = sortedServer.requiredHackThreads
 
+
       //Ensure max strength hack.
       if ( maxNetworkThreadsPossible < clampedHackThreads + clampedWeakenThreads && clampedHackThreads > 0 )
       {
@@ -226,10 +227,9 @@ export async function main(ns)
           }
           else
           {
-            //ns.tprint( serverSearchTime.getTime() + sortedServer.name + " is ready to hack, delaying due to lack of threads." )
-            //Skip all lower priorty servers till we can hack this one.
-            totalNetworkThreadsAllocated = totalNetworkThreadsAvailable
-            break
+            //ns.tprint( serverSearchTime.getTime() + sortedServer.name + " is ready to hack, skipping due to lack of max threads needed." )
+            //Skip this server until we have enough maximum threads to do a full-power hack.
+            continue
           }
         }
       }
