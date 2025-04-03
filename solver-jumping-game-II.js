@@ -62,6 +62,15 @@ export function SolveJumpingGame( jumpArray )
 
 function BuildAndEvaluateJumpTree( jumpArray, currentJumpTree, possibleJumps, smallestJumpCount )
 {
+  //Handle the case where our 1st position has zero jumps.
+  if ( jumpArray[ currentJumpTree[0] ] == 0 )
+    return 0
+
+  //Handle case where we can jump to the end of our array from our 1st position.
+  if ( jumpArray[ currentJumpTree[0] ] + 1 == jumpArray.length )
+    return 1
+
+
   let newSmallestJumpCount = smallestJumpCount
   for ( let i = 0; i < possibleJumps.length; i++ )
   {
@@ -74,7 +83,7 @@ function BuildAndEvaluateJumpTree( jumpArray, currentJumpTree, possibleJumps, sm
     let nextJumpTree = currentJumpTree.slice()
     nextJumpTree.push( possibleJumps[i] )
 
-    if ( possibleJumps[i] + jumpArray[ possibleJumps[i] ] >= jumpArray.length )
+    if ( possibleJumps[i] + jumpArray[ possibleJumps[i] ] >= jumpArray.length - 1 )
     {
       if ( nextJumpTree.length < newSmallestJumpCount )
         newSmallestJumpCount = nextJumpTree.length
