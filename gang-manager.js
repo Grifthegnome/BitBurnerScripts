@@ -93,6 +93,7 @@ export async function main(ns)
   KillDuplicateScriptsOnHost( ns, ns.getRunningScript() )
 
   let lastWantedLevelGain       = -1.0
+  let lastWantedLevelPentalty   = 0.0
   let currentWantedGain         = 0.0
   let wantedLevelGainDeltaTrend = 0.0
 
@@ -135,8 +136,8 @@ export async function main(ns)
       firstFrame = false
     }
 
-    const wantedLevelGainDelta  = currentWantedGain - lastWantedLevelGain
-    wantedLevelGainDeltaTrend   = ( wantedLevelGainDeltaTrend + wantedLevelGainDelta ) / 2
+    const wantedLevelGainDelta    = currentWantedGain - lastWantedLevelGain
+    wantedLevelGainDeltaTrend     = ( wantedLevelGainDeltaTrend + wantedLevelGainDelta ) / 2
 
     const moneyDelta = currentMoneyAvailable - lastMoneyAvailable
     moneyDeltaTrend = ( moneyDeltaTrend + moneyDelta ) / 2
@@ -172,7 +173,8 @@ export async function main(ns)
     }
 
     let isNewGang = gangInfo.wantedPenalty == 0.5 && gangInfo.wantedLevel == 1.0
-    const gangPriorityData = DetermineGangPriority( idealPriority, currentWantedGain, wantedLevelGainDeltaTrend, gangInfo.wantedPenalty, moneyDeltaTrend, hasMaxMembers, isNewGang )
+    let isStuck = gangInfo.wantedPenalty == lastWantedLevelPentalty
+    const gangPriorityData = DetermineGangPriority( idealPriority, currentWantedGain, wantedLevelGainDeltaTrend, gangInfo.wantedPenalty, moneyDeltaTrend, hasMaxMembers, isNewGang, isStuck )
 
     let taskPriorityArray = Array()
     for ( let taskIndex = 0; taskIndex < taskStatsArray.length; taskIndex++ )
@@ -395,6 +397,7 @@ export async function main(ns)
       }
     }
     
+    lastWantedLevelPentalty = gangInfo.wantedPenalty
     lastWantedLevelGain = currentWantedGain
     lastMoneyAvailable = currentMoneyAvailable
 
@@ -629,7 +632,7 @@ function GenerateTaskHeuristicForMember( memberInfo, taskStats )
 
 }
 
-function DetermineGangPriority( idealPriority, wantedLevelGainRate, wantedLevelGainRateTrend, wantedPenalty, moneyTrend, hasMaxMembers, isNewGang )
+function DetermineGangPriority( idealPriority, wantedLevelGainRate, wantedLevelGainRateTrend, wantedPenalty, moneyTrend, hasMaxMembers, isNewGang, isStuck )
 {
   /*
     1# always keep wanted level trending negative.
@@ -659,8 +662,10 @@ function DetermineGangPriority( idealPriority, wantedLevelGainRate, wantedLevelG
     which causes the gang to get stuck in wanted level reduction mode.
 
     If our gang is brand new, we need to do some initial crime, just to get our wanted level penalty unfrozen.
+
+    If our wanted penalty is not changing, we need to do some crime to get the pentalty unfrozen.
     */
-    if ( (wantedLevelGainRate < 0 || wantedLevelGainRateTrend < 0) && (1 - wantedPenalty) <= GANG_MAX_WANTED_PENALTY && !isNewGang )
+    if ( ((wantedLevelGainRate < 0 || wantedLevelGainRateTrend < 0) && (1 - wantedPenalty) <= GANG_MAX_WANTED_PENALTY && !isNewGang ) || !isStuck )
     {
       if ( hasMaxMembers )
       {
