@@ -2,7 +2,7 @@
 export async function main(ns) 
 {
     const startingRam = 2
-    const endingRam = 65536
+    const endingRam = 524288
 
     await BuyServers( ns, startingRam )
 

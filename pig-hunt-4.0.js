@@ -180,9 +180,9 @@ export async function main(ns)
     for ( let i = 0; i < searchedServers.length; i++  )
     {
 
-      const remainingThreadsAvailable = totalNetworkThreadsAvailable - totalNetworkThreadsAllocated
+      const remainingNetworkThreadsAvailable = totalNetworkThreadsAvailable - totalNetworkThreadsAllocated
 
-      if ( remainingThreadsAvailable <= 0 && clampedAvailableHomeThreads <= 0 )
+      if ( remainingNetworkThreadsAvailable <= 0 && clampedAvailableHomeThreads <= 0 )
         break 
 
       let sortedServer = searchedServers[ i ]
@@ -210,7 +210,7 @@ export async function main(ns)
       if ( maxNetworkThreadsPossible < clampedHackThreads + clampedWeakenThreads && clampedHackThreads > 0 )
       {
         //we only want to hack when we can hack at full thread power, or we are using all our current resources to the best hack we can.
-        if ( maxNetworkThreadsPossible > remainingThreadsAvailable )
+        if ( maxNetworkThreadsPossible > remainingNetworkThreadsAvailable )
         {
 
           //If we can run the threads on our home server to unblock our server farm, do it.
@@ -235,7 +235,7 @@ export async function main(ns)
       }
       else
       {
-        if ( remainingThreadsAvailable < clampedHackThreads + clampedWeakenThreads && clampedHackThreads > 0 )
+        if ( remainingNetworkThreadsAvailable < clampedHackThreads + clampedWeakenThreads && clampedHackThreads > 0 )
         {
           //If we can run the threads on our home server to unblock our server farm, do it.
           if ( clampedAvailableHomeThreads >= clampedHackThreads + clampedWeakenThreads && clampedHackThreads > 0 )
@@ -312,24 +312,24 @@ export async function main(ns)
           continue
       }
 
-      if ( remainingThreadsAvailable <= 0 )
+      if ( remainingNetworkThreadsAvailable <= 0 )
         continue 
 
       //Don't allow us to continue if we can't run a full hack.
-      if ( remainingThreadsAvailable < clampedHackThreads + clampedWeakenThreads && clampedHackThreads > 0 )
+      if ( remainingNetworkThreadsAvailable < clampedHackThreads + clampedWeakenThreads && clampedHackThreads > 0 )
         continue
 
       //If we don't have enough threads, we want to scale down our thread requirements by a uniform scalar so that we still run some of each of our required threads.
-      if ( sortedServer.requiredTotalThreads > remainingThreadsAvailable )
+      if ( sortedServer.requiredTotalThreads > remainingNetworkThreadsAvailable )
       {
-        const threadsNeededScalar = remainingThreadsAvailable / sortedServer.requiredTotalThreads
+        const threadsNeededScalar = remainingNetworkThreadsAvailable / sortedServer.requiredTotalThreads
         clampedGrowThreads    = Math.round( clampedGrowThreads * threadsNeededScalar )
         clampedWeakenThreads  = Math.round( clampedWeakenThreads * threadsNeededScalar )
         clampedHackThreads    = Math.round( clampedHackThreads * threadsNeededScalar )
 
         const postScaleTotalThreadsNeeded  = clampedWeakenThreads + clampedGrowThreads + clampedHackThreads
 
-        if ( postScaleTotalThreadsNeeded > remainingThreadsAvailable )
+        if ( postScaleTotalThreadsNeeded > remainingNetworkThreadsAvailable )
           debugger
       } 
 
