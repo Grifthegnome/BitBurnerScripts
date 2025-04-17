@@ -1,12 +1,13 @@
 import { KillDuplicateScriptsOnHost } from "utility.js"
 
-function GangPriorityData( wantedWeight, respectWeight, moneyWeight, reputationWeight, warfareWeight )
+function GangPriorityData( wantedWeight, respectWeight, moneyWeight, reputationWeight, warfareWeight, trainingWeight )
 {
   this.wantedWeight       = wantedWeight
   this.respectWeight      = respectWeight
   this.moneyWeight        = moneyWeight
   this.reputationWeight   = reputationWeight
   this.warfareWeight      = warfareWeight
+  this.trainingWeight     = trainingWeight
 }
 
 function GangTaskPriorityData( taskStats, priority )
@@ -82,7 +83,7 @@ export async function main(ns)
   if ( ns.args.length > 0 )
     idealPriority = ns.args[0]
 
-  if ( idealPriority != "money" && idealPriority != "faction" && idealPriority != "warfare" )
+  if ( idealPriority != "money" && idealPriority != "faction" && idealPriority != "warfare" && idealPriority != "training" )
   {
     ns.tprint( "Gang priority must be money or faction, " + idealPriority + " is an invalid option." )
     ns.tprint( "Ending script." )
@@ -180,7 +181,7 @@ export async function main(ns)
     for ( let taskIndex = 0; taskIndex < taskStatsArray.length; taskIndex++ )
     {
       const taskStats = taskStatsArray[ taskIndex ]
-      const taskPriorityData = DeterminePriorityForTask( gangPriorityData, taskStats, gangTaskValueBounds, gangInfo.territoryWarfareEngaged )
+      const taskPriorityData = DeterminePriorityForTask( gangPriorityData, taskStats, gangTaskValueBounds )
       taskPriorityArray.push( taskPriorityData )
 
       if ( DEBUG_PRINT_GANG_MANAGER )
@@ -388,7 +389,7 @@ export async function main(ns)
     //Note: Currently, whether the weakest gang members get gear upgrades first or the best get gear first depends on if the gang is prioritizing hostile actions or wanted reduction.
 
     //Handle Gang Upgrades
-    if ( warfareMode || idealPriority != "warfare" )
+    if ( idealPriority != "training" )
     {
       for ( let i = 0; i < memberInfoArray.length; i++ )
       {
@@ -646,6 +647,7 @@ function DetermineGangPriority( idealPriority, wantedLevelGainRate, wantedLevelG
   let moneyWeight       = 0.0
   let reputationWeight  = 0.0
   let warfareWeight     = 0.0
+  let trainingWeight    = 0.0
 
   if ( idealPriority == "warfare" )
   {
@@ -654,6 +656,16 @@ function DetermineGangPriority( idealPriority, wantedLevelGainRate, wantedLevelG
     moneyWeight       = 0.0
     reputationWeight  = 0.0
     warfareWeight     = 1.0
+    trainingWeight    = 0.0
+  }
+  else if ( idealPriority == "training" )
+  {
+    wantedWeight      = 0.0
+    respectWeight     = 0.0
+    moneyWeight       = 0.0
+    reputationWeight  = 0.0
+    warfareWeight     = 0.0
+    trainingWeight    = 1.0
   }
   else
   {
@@ -678,6 +690,7 @@ function DetermineGangPriority( idealPriority, wantedLevelGainRate, wantedLevelG
           moneyWeight       = 0.0
           reputationWeight  = 1.0
           warfareWeight     = 0.0
+          trainingWeight    = 0.0
         }
         else
         {
@@ -688,6 +701,7 @@ function DetermineGangPriority( idealPriority, wantedLevelGainRate, wantedLevelG
           moneyWeight       = 1.0
           reputationWeight  = 0.0
           warfareWeight     = 0.0
+          trainingWeight    = 0.0
         }
 
       }
@@ -699,6 +713,7 @@ function DetermineGangPriority( idealPriority, wantedLevelGainRate, wantedLevelG
         moneyWeight       = 0.0
         reputationWeight  = 0.0
         warfareWeight     = 0.0
+        trainingWeight    = 0.0
       }
     }
     else
@@ -709,6 +724,7 @@ function DetermineGangPriority( idealPriority, wantedLevelGainRate, wantedLevelG
       moneyWeight       = 0.0
       reputationWeight  = 0.0
       warfareWeight     = 0.0
+      trainingWeight    = 0.0
     }
   }
   
@@ -719,7 +735,8 @@ function DetermineGangPriority( idealPriority, wantedLevelGainRate, wantedLevelG
       respectWeight, 
       moneyWeight, 
       reputationWeight,
-      warfareWeight
+      warfareWeight,
+      trainingWeight
       )
 
   return gangPriorityData
@@ -759,26 +776,23 @@ function DetermineGangTaskValueBounds( taskStatsArray )
   return gangTaskValueBounds
 }
 
-function DeterminePriorityForTask( gangPriorityData, taskStats, gangTaskValueBounds, territoryWarfareEngaged )
+function DeterminePriorityForTask( gangPriorityData, taskStats, gangTaskValueBounds )
 {
 
   //Gang warfare takes special priority.
   if ( gangPriorityData.warfareWeight > 0 )
   {
-    if ( territoryWarfareEngaged )
-    {
-      if ( taskStats.name == "Territory Warfare" )
-        return new GangTaskPriorityData( taskStats, 1.0 )
-      else
-        return new GangTaskPriorityData( taskStats, 0.0 )
-    }
+    if ( taskStats.name == "Territory Warfare" )
+       return new GangTaskPriorityData( taskStats, 1.0 )
     else
-    {
-      if ( taskStats.name == "Train Combat" )
-        return new GangTaskPriorityData( taskStats, 1.0 )
-      else
-        return new GangTaskPriorityData( taskStats, 0.0 )
-    }
+       return new GangTaskPriorityData( taskStats, 0.0 )
+  }
+  else if ( gangPriorityData.trainingWeight > 0 )
+  {
+    if ( taskStats.name == "Train Combat" )
+      return new GangTaskPriorityData( taskStats, 1.0 )
+    else
+      return new GangTaskPriorityData( taskStats, 0.0 )
   }
 
   const normalizedWanted      = ( taskStats.baseWanted / gangTaskValueBounds.highestWanted )
