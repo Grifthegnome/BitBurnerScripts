@@ -38,7 +38,7 @@ totalGrowingTime, totalWeakeningTime, hackPercentage, requiredGrowThreads, requi
   this.totalTimeDevReadable   = this.requiredHackThreads > 0 ? "Finished Hacking In: " + GetReadableDateDelta( this.hackingTime ) : "Can Hacking In: " + GetReadableDateDelta( this.totalGrowingTime + this.totalWeakeningTime )
 
   this.hackPercentage = hackPercentage
-  this.heuristic      = this.requiredHackThreads > 0 ? -this.hackingTime : this.totalGrowingTime + this.totalWeakeningTime //GetTimeForEarningRatio( this.totalTime, maxMoney * hackPercentage )
+  this.heuristic      = this.requiredHackThreads > 0 ? this.hackingTime : ( this.totalGrowingTime + this.totalWeakeningTime ) * 1000 //GetTimeForEarningRatio( this.totalTime, maxMoney * hackPercentage )
 }
 
 function GrowthThreadData( requiredThreads, activeThreads )
@@ -266,8 +266,11 @@ export async function main(ns)
       if ( clampedWeakenThreads > maxTimeUntilThreadFinished )
         maxTimeUntilThreadFinished += weakeningTime
 
+      //We use this value to scale the maximum process time we allow to run on our home server based on how much free ram we have available.
+      const clampedAvailableHomeRamUseFrac = sortedServer.requiredTotalThreads / clampedAvailableHomeThreads
+
       // if we could run this on our home machine, try that before allocating to farm, if the time to get the server to a hack is less than our max allowable time.
-      if ( (sortedServer.requiredTotalThreads <= clampedAvailableHomeThreads || remainingThreadsAvailable == 0) && maxTimeUntilThreadFinished <= HOME_SERVER_MAX_TIME_UNTIL_THREAD_FINISHED)
+      if ( (sortedServer.requiredTotalThreads <= clampedAvailableHomeThreads) && maxTimeUntilThreadFinished <= ( HOME_SERVER_MAX_TIME_UNTIL_THREAD_FINISHED / clampedAvailableHomeRamUseFrac ) )
       {
         let homeClampedGrowThreads   = clampedGrowThreads
         let homeClampedWeakenThreads = clampedWeakenThreads
@@ -295,6 +298,9 @@ export async function main(ns)
         const threadCountList = [ homeClampedGrowThreads, homeClampedWeakenThreads, homeClampedHackThreads ]
         const totalHomeThreadsAllocated = DistribueScriptsToHome( ns, scriptNameList, scriptArgsList, threadCountList )
         
+        if ( homeClampedGrowThreads + homeClampedWeakenThreads + homeClampedHackThreads != totalHomeThreadsAllocated )
+          debugger
+
         clampedGrowThreads    -= homeClampedGrowThreads
         clampedWeakenThreads  -= homeClampedWeakenThreads
         clampedHackThreads    -= homeClampedHackThreads
@@ -655,6 +661,7 @@ function CalculateWeakenThreads( ns, targetServer, weakenScript, growThreadCount
   {
     const currentActiveWeakenThreads  = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", weakenScript, [targetServer] ) + GetTotalThreadsRunningScriptOnHome( ns, weakenScript, [targetServer] )
     const reqWeakenThreads = Math.max( 0, weakenThreads - currentActiveWeakenThreads)
+    
     return reqWeakenThreads
   }
 
