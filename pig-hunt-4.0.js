@@ -304,7 +304,7 @@ export async function main(ns)
       // if we could run this on our home machine, try that before allocating to farm, if the time to get the server to a hack is less than our max allowable time.
       //if ( (sortedServer.requiredTotalThreads <= clampedAvailableHomeThreads) && maxTimeUntilThreadFinished <= ( HOME_SERVER_MAX_TIME_UNTIL_THREAD_FINISHED / clampedAvailableHomeRamUseFrac ) )
       //if ( sortedServer.requiredTotalThreads <= clampedAvailableHomeThreads )
-      if ( clampedAvailableHomeThreads > 0 && clampedHackThreads == 0 )
+      if ( clampedAvailableHomeThreads > 0 && ( !(sortedServer.name in compromisedServers) || Object.keys(compromisedServers).length == searchedServers.length ) )
       {
         let homeClampedGrowThreads   = clampedGrowThreads
         let homeClampedWeakenThreads = clampedWeakenThreads
