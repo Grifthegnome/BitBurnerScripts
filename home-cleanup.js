@@ -8,6 +8,9 @@ export async function main(ns)
   if ( ns.fileExists( "unused_thread_report.txt", "home" ) )
     ns.rm( "unused_thread_report.txt", "home" )
 
+  if ( ns.fileExists( "compromised_servers.txt", "home" ) )
+    ns.rm( "compromised_servers.txt", "home" )
+
   //This cleans up data for hacknet-manager.js
   if ( ns.fileExists( "hacknet_cores_income_data.txt", "home" ) )
     ns.rm( "hacknet_cores_income_data.txt", "home" )

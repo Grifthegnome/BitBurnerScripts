@@ -14,6 +14,7 @@ import { DistribueScriptsToHome } from "utility.js"
 import { KillDuplicateScriptsOnHost } from "utility.js"
 
 const REQUIRED_THREADS_FILENAME = "unused_thread_report.txt"
+const COMPROMISED_SERVER_FILENAME = "compromised_servers.txt"
 
 /** @param {NS} ns */
 function ServerData( name, money, maxMoney, securityLevel, secMinLevel, hackingLevel, hackingTime, 
@@ -34,10 +35,12 @@ totalGrowingTime, totalWeakeningTime, hackPercentage, requiredGrowThreads, requi
   this.requiredTotalThreads   = requiredGrowThreads + requiredWeakenThreads + requiredHackThreads
   this.totalTime              = hackingTime + totalGrowingTime + totalWeakeningTime
 
-  this.totalTimeDevReadable   = this.requiredHackThreads > 0 ? "Finished Hacking In: " + GetReadableDateDelta( this.hackingTime ) : "Can Hacking In: " + GetReadableDateDelta( this.totalGrowingTime + this.totalWeakeningTime )
+  this.totalTimeDevReadable   = this.requiredHackThreads > 0 ? "Finished Hacking In: " + GetReadableDateDelta( this.hackingTime ) : "Can Hack In: " + GetReadableDateDelta( this.totalGrowingTime + this.totalWeakeningTime )
 
   this.hackPercentage = hackPercentage
-  this.heuristic      = this.requiredHackThreads > 0 ? this.hackingTime : ( this.totalGrowingTime + this.totalWeakeningTime ) * 1000 //GetTimeForEarningRatio( this.totalTime, maxMoney * hackPercentage )
+
+  const longestProcessTime = this.totalGrowingTime > this.totalWeakeningTime ? this.totalGrowingTime : this.totalWeakeningTime
+  this.heuristic = this.requiredHackThreads > 0 ? this.hackingTime : ( longestProcessTime ) * 1000 //GetTimeForEarningRatio( this.totalTime, maxMoney * hackPercentage )
 }
 
 function GrowthThreadData( requiredThreads, activeThreads )
@@ -55,15 +58,26 @@ const ACCOUNT_HACK_PERCENTILE = 0.2
 //The max percentage of ram threads allocated by this script can use on our home server, we always want head room to run other scripts.
 const HOME_SERVER_MAX_RAM_USAGE = 0.75
 
+//For a servers we have never hacked before, how much of the network are they allowed to use?
+const UNCOMPROMISED_SERVER_AVAILABLE_NETWORK_THREAD_SCALAR = 0.5
+
 /*
 For non-hack operations, we will only run threads on our home server that will be complted within the given ms timeframe. This is to keep threads turning over
 to ensure any available hacks are executed promptly and don't hold up the server farm's thread allocation chain.
 */
 const HOME_SERVER_MAX_TIME_UNTIL_THREAD_FINISHED = 60000
-const NETWORK_MAX_TIME_UNTIL_THREAD_FINISHED = 90000
+
+
+let compromisedServers = {}
 
 export async function main(ns) 
 {
+
+  if ( ns.fileExists( COMPROMISED_SERVER_FILENAME, "home" ) )
+  {
+    const jsonStringRead = ns.read( COMPROMISED_SERVER_FILENAME )
+    compromisedServers = JSON.parse( jsonStringRead )
+  }
 
   /*
   TO DO: save the results of a server to a file and only recompute 
@@ -163,7 +177,7 @@ export async function main(ns)
       let sortedServer = searchedServers[ i ]
       totalRequiredThreads += sortedServer.requiredTotalThreads 
     }
-
+      
     //Determine how many threads we can run on home as an overflow if needed.
     const maxHomeThreadsPossible    = GetMaxThreadCountForScript( ns, farmingScript, "home" )
     const totalHomeThreadsAvailable = GetThreadCountForScript( ns, farmingScript, "home" )
@@ -194,6 +208,19 @@ export async function main(ns)
       if ( sortedServer.requiredTotalThreads == 0 )
         continue
 
+      if ( sortedServer.requiredHackThreads > 0 && !(sortedServer.name  in compromisedServers) )
+      {
+        compromisedServers[sortedServer.name] = sortedServer.requiredTotalThreads / maxNetworkThreadsPossible 
+        const jsonStringWrite = JSON.stringify( compromisedServers )
+        await ns.write( COMPROMISED_SERVER_FILENAME, jsonStringWrite, "w" )
+      }
+      else if ( (sortedServer.name  in compromisedServers) && sortedServer.requiredHackThreads > 0 ) 
+      {
+        compromisedServers[sortedServer.name] = sortedServer.requiredTotalThreads / maxNetworkThreadsPossible 
+        const jsonStringWrite = JSON.stringify( compromisedServers )
+        await ns.write( COMPROMISED_SERVER_FILENAME, jsonStringWrite, "w" )
+      }
+
       const hackingTime       = ns.getHackTime( sortedServer.name )
       const growingTime       = ns.getGrowTime( sortedServer.name )
       const weakeningTime     = ns.getWeakenTime( sortedServer.name )
@@ -205,6 +232,8 @@ export async function main(ns)
       let clampedWeakenThreads  = sortedServer.requiredWeakenThreads
       let clampedHackThreads    = sortedServer.requiredHackThreads
 
+      //TO DO: Grow and Weaken are more efficient on home server with more cores.
+      //Home should prioritize grow and weaken of new, uncompromised servers, and server farm should handle hacks.
 
       //Ensure max strength hack.
       if ( maxNetworkThreadsPossible < clampedHackThreads + clampedWeakenThreads && clampedHackThreads > 0 )
@@ -269,12 +298,13 @@ export async function main(ns)
           maxTimeUntilThreadFinished = weakeningTime
       }
         
-
       //We use this value to scale the maximum process time we allow to run on our home server based on how much free ram we have available.
-      const clampedAvailableHomeRamUseFrac = sortedServer.requiredTotalThreads / clampedAvailableHomeThreads
+      const clampedAvailableHomeRamUseFrac = Math.min( sortedServer.requiredTotalThreads / clampedAvailableHomeThreads, 1.0 )
 
       // if we could run this on our home machine, try that before allocating to farm, if the time to get the server to a hack is less than our max allowable time.
-      if ( (sortedServer.requiredTotalThreads <= clampedAvailableHomeThreads) && maxTimeUntilThreadFinished <= ( HOME_SERVER_MAX_TIME_UNTIL_THREAD_FINISHED / clampedAvailableHomeRamUseFrac ) )
+      //if ( (sortedServer.requiredTotalThreads <= clampedAvailableHomeThreads) && maxTimeUntilThreadFinished <= ( HOME_SERVER_MAX_TIME_UNTIL_THREAD_FINISHED / clampedAvailableHomeRamUseFrac ) )
+      //if ( sortedServer.requiredTotalThreads <= clampedAvailableHomeThreads )
+      if ( clampedAvailableHomeThreads > 0 && clampedHackThreads == 0 )
       {
         let homeClampedGrowThreads   = clampedGrowThreads
         let homeClampedWeakenThreads = clampedWeakenThreads
@@ -323,8 +353,34 @@ export async function main(ns)
       if ( remainingNetworkThreadsAvailable < clampedHackThreads + clampedWeakenThreads && clampedHackThreads > 0 )
         continue
 
+      //If this is a server we have never hacked before, scale back the number of threads we are allowed to run, so we don't jam up the server farm and block servers we can hack.
+
+      if ( !(sortedServer.name  in compromisedServers) )
+      {
+        const uncompromisedServerMaxAllowedThreads = maxNetworkThreadsPossible * ( 1.0 - GetTotalFarmUsageForCompromisedServers() )
+
+        if ( maxNetworkThreadsPossible - uncompromisedServerMaxAllowedThreads > remainingNetworkThreadsAvailable )
+          continue
+
+        if ( uncompromisedServerMaxAllowedThreads < sortedServer.requiredTotalThreads )
+        {
+
+          const maxAvailableThreads = uncompromisedServerMaxAllowedThreads > remainingNetworkThreadsAvailable ? remainingNetworkThreadsAvailable : uncompromisedServerMaxAllowedThreads
+
+          //We should replace this with thread scaling, so we can make some progress on new uncompromised servers.
+          const threadsNeededScalar = maxAvailableThreads / sortedServer.requiredTotalThreads
+          clampedGrowThreads    = Math.round( clampedGrowThreads * threadsNeededScalar )
+          clampedWeakenThreads  = Math.round( clampedWeakenThreads * threadsNeededScalar )
+          clampedHackThreads    = Math.round( clampedHackThreads * threadsNeededScalar )
+
+          const postScaleTotalThreadsNeeded  = clampedWeakenThreads + clampedGrowThreads + clampedHackThreads
+          
+          if ( postScaleTotalThreadsNeeded > remainingNetworkThreadsAvailable )
+            continue
+        }
+      }
       //If we don't have enough threads, we want to scale down our thread requirements by a uniform scalar so that we still run some of each of our required threads.
-      if ( sortedServer.requiredTotalThreads > remainingNetworkThreadsAvailable )
+      else if ( sortedServer.requiredTotalThreads > remainingNetworkThreadsAvailable )
       {
         const threadsNeededScalar = remainingNetworkThreadsAvailable / sortedServer.requiredTotalThreads
         clampedGrowThreads    = Math.round( clampedGrowThreads * threadsNeededScalar )
@@ -359,7 +415,8 @@ export async function main(ns)
       totalNetworkThreadsAllocated += threadsAllocated   
     }
 
-    const unallocatedThreadCount = totalNetworkThreadsAvailable - totalNetworkThreadsAllocated
+    //If we have compromised all current servers and have remaining threads, we have unallocated threads.
+    const unallocatedThreadCount = Object.keys(compromisedServers).length == searchedServers.length ? totalNetworkThreadsAvailable - totalNetworkThreadsAllocated : 0
     
     const jsonStringWrite = JSON.stringify( unallocatedThreadCount )
     await ns.write( REQUIRED_THREADS_FILENAME, jsonStringWrite, "w" )
@@ -548,10 +605,10 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
         if ( PIG_HUNT_DEBUG_PRINTS )
           ns.tprint( "Thread Estimation for " + connectionName + ": " + totalThreadCount )
         
-        let needsThreads = growthThreadData.requiredThreads > 0 || requiredWeakenThreads > 0 || threadsToHack > 0
+        //let needsThreads = growthThreadData.requiredThreads > 0 || requiredWeakenThreads > 0 || threadsToHack > 0
 
         //Never Return our Home computer
-        if ( connectionName != "home" && needsThreads )
+        if ( connectionName != "home" )
         {
           if ( PIG_HUNT_DEBUG_PRINTS )
           {
@@ -673,4 +730,23 @@ function CalculateWeakenThreads( ns, targetServer, weakenScript, growThreadCount
   }
 
   return weakenThreads
+}
+
+function GetTotalFarmUsageForCompromisedServers()
+{
+  const serverNames = Object.keys( compromisedServers )
+
+  let totalUsageFrac = 0
+
+  for ( let i = 0; i < serverNames.length; i++ )
+  {
+    const serverName = serverNames[ i ]
+    const farmUsageFrac = compromisedServers[ serverName ]
+    totalUsageFrac += farmUsageFrac
+  }
+
+  if ( totalUsageFrac > 1 )
+    totalUsageFrac = 1
+
+  return totalUsageFrac
 }
