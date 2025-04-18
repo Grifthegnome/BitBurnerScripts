@@ -2,6 +2,7 @@
 export async function main(ns) {
   // Defines the "target server", which is the server
   const target = ns.args[0]
+  const delay  = ns.args[1]
 
   ns.print( "Target Host: " + target )
 
@@ -14,7 +15,8 @@ export async function main(ns) {
   {
       if (ns.getServerMoneyAvailable(target) < moneyThresh) 
       {
-        await ns.grow(target);
+        const basicHWGOptions = { additionalMsec: delay }
+        await ns.grow(target, basicHWGOptions);
       }
       
       return

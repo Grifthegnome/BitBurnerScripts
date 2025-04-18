@@ -2,6 +2,7 @@
 export async function main(ns) {
   // Defines the "target server", which is the server
   const target = ns.args[0]
+  const delay  = ns.args[1]
 
   ns.print( "Target Host: " + target )
 
@@ -15,7 +16,8 @@ export async function main(ns) {
     //To Do: Pass in how many threads are targeting this server so we know how much hacking to do.
     if (ns.getServerMoneyAvailable(target) == moneyThresh)
     {
-      await ns.hack(target);
+      const basicHWGOptions = { additionalMsec: delay }
+      await ns.hack(target, basicHWGOptions);
     }
     
     return

@@ -39,8 +39,10 @@ totalGrowingTime, totalWeakeningTime, hackPercentage, requiredGrowThreads, requi
 
   this.hackPercentage = hackPercentage
 
-  const longestProcessTime = this.totalGrowingTime > this.totalWeakeningTime ? this.totalGrowingTime : this.totalWeakeningTime
-  this.heuristic = this.requiredHackThreads > 0 ? this.hackingTime : ( longestProcessTime ) * 1000 //GetTimeForEarningRatio( this.totalTime, maxMoney * hackPercentage )
+  //const longestProcessTime = this.totalGrowingTime > this.totalWeakeningTime ? this.totalGrowingTime : this.totalWeakeningTime
+  //this.heuristic = this.requiredHackThreads > 0 ? this.hackingTime : ( longestProcessTime ) * 1000 //GetTimeForEarningRatio( this.totalTime, maxMoney * hackPercentage )
+
+  this.heuristic = this.requiredHackThreads > 0 ? this.requiredTotalThreads : this.requiredTotalThreads
 }
 
 function GrowthThreadData( requiredThreads, activeThreads )
@@ -50,22 +52,11 @@ function GrowthThreadData( requiredThreads, activeThreads )
 }
 
 const PIG_HUNT_DEBUG_PRINTS = false
-const GROW_THREAD_SECURITY_DELTA = 0.004 //This is a constant in the game.
-const HACK_THREAD_SECURITY_DELTA = 0.002 //This is an aproximation.
 const ACCOUNT_HACK_ADJUSTMENT_PERCENTILE = 0.01
 const ACCOUNT_HACK_PERCENTILE = 0.2
 
 //The max percentage of ram threads allocated by this script can use on our home server, we always want head room to run other scripts.
 const HOME_SERVER_MAX_RAM_USAGE = 0.75
-
-//For a servers we have never hacked before, how much of the network are they allowed to use?
-const UNCOMPROMISED_SERVER_AVAILABLE_NETWORK_THREAD_SCALAR = 0.5
-
-/*
-For non-hack operations, we will only run threads on our home server that will be complted within the given ms timeframe. This is to keep threads turning over
-to ensure any available hacks are executed promptly and don't hold up the server farm's thread allocation chain.
-*/
-const HOME_SERVER_MAX_TIME_UNTIL_THREAD_FINISHED = 60000
 
 export async function main(ns) 
 {
@@ -162,14 +153,6 @@ export async function main(ns)
 
     searchedServers.sort( (a, b) => a.heuristic - b.heuristic )
 
-    //We are relying on the fact that our work scripts kill themselves when they are done.
-    /*
-    if ( searchedServers.length > 0 )
-    {
-      KillAllNetworkProcesses( ns, "home", "home" )
-    }
-    */
-
     let totalRequiredThreads = 0;
     for ( let i = 0; i < searchedServers.length; i++ )
     {
@@ -224,8 +207,12 @@ export async function main(ns)
       const growingTime       = ns.getGrowTime( sortedServer.name )
       const weakeningTime     = ns.getWeakenTime( sortedServer.name )
 
+      const hackingThreadDelay = 0
+      const growThreadDelay = growingTime > weakeningTime ? growingTime - weakeningTime : 0
+      const weakeningThreadDelay = hackingTime > weakeningTime ? hackingTime - weakeningTime : 0
+
       const scriptNameList = [ growScript, weakenScript, hackScript ]
-      const scriptArgsList = [ [sortedServer.name], [sortedServer.name], [sortedServer.name] ]
+      const scriptArgsList = [ [sortedServer.name, growThreadDelay], [sortedServer.name, weakeningThreadDelay], [sortedServer.name, hackingThreadDelay] ]
 
       let clampedGrowThreads    = sortedServer.requiredGrowThreads
       let clampedWeakenThreads  = sortedServer.requiredWeakenThreads
@@ -245,7 +232,7 @@ export async function main(ns)
           if ( clampedAvailableHomeThreads >= clampedHackThreads + clampedWeakenThreads && clampedHackThreads > 0 )
           {
             const homeScriptNameList = [ hackScript, weakenScript ]
-            const homeScriptArgsList = [ [sortedServer.name], [sortedServer.name] ]
+            const homeScriptArgsList = [ [sortedServer.name, hackingThreadDelay], [sortedServer.name, weakeningThreadDelay] ]
             const homeThreadCountList = [ clampedHackThreads, clampedWeakenThreads ]
 
             //ns.tprint( serverSearchTime.getTime() + "Home Machine PRIORITY: Starting " + ( clampedHackThreads + clampedWeakenThreads ) + " thread of " + sortedServer.requiredTotalThreads + " hack on " + sortedServer.name )
@@ -269,7 +256,7 @@ export async function main(ns)
           if ( clampedAvailableHomeThreads >= clampedHackThreads + clampedWeakenThreads && clampedHackThreads > 0 )
           {
             const homeScriptNameList = [ hackScript, weakenScript ]
-            const homeScriptArgsList = [ [sortedServer.name], [sortedServer.name] ]
+            const homeScriptArgsList = [ [sortedServer.name, hackingThreadDelay], [sortedServer.name, weakeningThreadDelay] ]
             const homeThreadCountList = [ clampedHackThreads, clampedWeakenThreads ]
 
              //ns.tprint( serverSearchTime.getTime() + "Home Machine PRIORITY: Starting " + ( clampedHackThreads + clampedWeakenThreads ) + " thread of " + sortedServer.requiredTotalThreads + " hack on " + sortedServer.name )
@@ -670,9 +657,12 @@ function CalculateGrowthThreads( ns, targetServer, growScript )
 {
   const availableMoney  = ns.getServerMoneyAvailable( targetServer )
   const maxMoney        = ns.getServerMaxMoney( targetServer )
-  const minMoney        = 0.1
+  const minMoney        = 1 //Every growth thread adds one dollar before multiplying.
 
   //const oldGrowthModel = (maxMoney - availableMoney) / minMoney
+
+  const growthParameter = ns.getServerGrowth(targetServer)
+  //ns.growthAnalyzeSecurity() 
 
   const clampedAvailable = Math.max( availableMoney, minMoney )
 
@@ -681,6 +671,7 @@ function CalculateGrowthThreads( ns, targetServer, growScript )
   if ( growthMultiplier == 0 )
     return 0  
 
+  //This is a pure exponential calculation, every thread also adds 1$ before multiplying.
   const growthThreads = Math.ceil( ns.growthAnalyze( targetServer, growthMultiplier ) )
   
   
@@ -709,9 +700,8 @@ function CalculateWeakenThreads( ns, targetServer, weakenScript, growThreadCount
   //There are cases when the game starts, where a server can have a starting security value that is greater than it's max value, this covers that case.
   const highestSecurityVal = curSec > maxSec ? curSec : maxSec
 
-  const securityPostGrow = Math.min( curSec + ( GROW_THREAD_SECURITY_DELTA * growThreadCount ), highestSecurityVal )
-
-  const securityPostHack = Math.min( securityPostGrow + ( HACK_THREAD_SECURITY_DELTA * hackThreadCount ), highestSecurityVal )
+  const securityPostGrow = Math.min( curSec + ns.growthAnalyzeSecurity(growThreadCount, targetServer, 1) , highestSecurityVal )
+  const securityPostHack = Math.min( securityPostGrow + ns.hackAnalyzeSecurity( hackThreadCount, targetServer ), highestSecurityVal )
 
   const securityDelta = securityPostHack - minSec
 
