@@ -1,3 +1,5 @@
+const SERVER_LOCK_FILE_NAME        = "locked_servers.txt"
+
 export function AvailableServerData( name, availableThreads )
 {
   this.name             = name
@@ -314,9 +316,66 @@ export function FindServerAndBackTrace( ns, hostServer, parentServer, serverToFi
     return backtrackStack
   }
 
+export async function LockServer( ns, serverName )
+{
+  if ( ns.fileExists( SERVER_LOCK_FILE_NAME ) )
+  {
+    const jsonStringRead = ns.read( SERVER_LOCK_FILE_NAME )
+    let lockedServers = JSON.parse( jsonStringRead )
+
+    if ( !lockedServers.includes( serverName ) )
+      lockedServers.push( serverName )
+
+    const jsonStringWrite = JSON.stringify( lockedServers )
+    await ns.write( SERVER_LOCK_FILE_NAME, jsonStringWrite, "w" )
+  }
+  else
+  {
+    let lockedServers = [ serverName ]
+    const jsonStringWrite = JSON.stringify( lockedServers )
+    await ns.write( SERVER_LOCK_FILE_NAME, jsonStringWrite, "w" )
+  }
+}
+
+export function IsServerLocked( ns, serverName )
+{
+  if ( ns.fileExists( SERVER_LOCK_FILE_NAME ) )
+  {
+    const jsonString = ns.read( SERVER_LOCK_FILE_NAME )
+    let lockedServers = JSON.parse( jsonString )
+
+    return lockedServers.includes( serverName )
+  }
+
+  return false
+}
+
+export async function UnlockServer( ns, serverName )
+{
+  if ( ns.fileExists( SERVER_LOCK_FILE_NAME ) )
+  {
+    const jsonStringRead = ns.read( SERVER_LOCK_FILE_NAME )
+    let lockedServers = JSON.parse( jsonStringRead )
+
+    if ( lockedServers.includes( serverName ) )
+    {
+      const index = lockedServers.indexOf( serverName )
+      lockedServers.splice( index, 1 )
+
+      const jsonStringWrite = JSON.stringify( lockedServers )
+      await ns.write( SERVER_LOCK_FILE_NAME, jsonStringWrite, "w" )
+    }
+  }
+}
+
+export async function UnlockAllServers( ns )
+{
+  if ( ns.fileExists( SERVER_LOCK_FILE_NAME ) )
+    ns.rm( SERVER_LOCK_FILE_NAME )
+}
+
 export function GetTotalAvailableThreadsForScript( ns, hostServer, parentServer, scriptName )
 {  
-  const ramCost = ns.getScriptRam( scriptName )
 
   //This should be called with "home" as the starting server by the caller.
   const connections = ns.scan( hostServer )
@@ -330,7 +389,7 @@ export function GetTotalAvailableThreadsForScript( ns, hostServer, parentServer,
     if ( currentConnection == parentServer )
       continue
 
-    if ( ns.hasRootAccess( currentConnection ) )
+    if ( ns.hasRootAccess( currentConnection ) && !IsServerLocked( ns, currentConnection )  )
     {
       let availableThreads = GetThreadCountForScript( ns, scriptName, currentConnection )
       totalThreadCount += availableThreads
@@ -361,7 +420,7 @@ export function GetMaxThreadsForScript( ns, hostServer, parentServer, scriptName
     if ( currentConnection == parentServer )
       continue
 
-    if ( ns.hasRootAccess( currentConnection ) )
+    if ( ns.hasRootAccess( currentConnection ) && !IsServerLocked( ns, currentConnection ) )
     {
       let availableThreads = GetMaxThreadCountForScript( ns, scriptName, currentConnection )
       totalThreadCount += availableThreads
@@ -390,7 +449,7 @@ export function GetAvailableServersForScript( ns, hostServer, parentServer, scri
     if ( currentConnection == parentServer )
       continue
 
-    if ( ns.hasRootAccess( currentConnection ) )
+    if ( ns.hasRootAccess( currentConnection ) && !IsServerLocked( ns, currentConnection ) )
     {
       let availableThreads = GetThreadCountForScript( ns, scriptName, currentConnection )
 
@@ -425,6 +484,9 @@ export function AllocateThreadsForScriptToGivenServers( ns, threadCount, scriptN
       break
 
     let availableServer = availableServerList[ i ]
+
+    if ( IsServerLocked( ns, availableServer.name ) )
+      continue
 
     if ( availableServer.availableThreads > threadCount )
     {
@@ -634,7 +696,7 @@ export function GetTotalAvailableRamOnNetwork( ns, hostServer, parentServer )
     if ( currentConnection == parentServer )
       continue
 
-    if ( ns.hasRootAccess( currentConnection ) )
+    if ( ns.hasRootAccess( currentConnection ) && !IsServerLocked( ns, currentConnection ) )
     {
       let availableRam = GetAvailableRamForServer( ns, currentConnection )
       totalAvailableRam += availableRam
@@ -663,7 +725,7 @@ export function GetMaxRamOnNetwork( ns, hostServer, parentServer )
     if ( currentConnection == parentServer )
       continue
 
-    if ( ns.hasRootAccess( currentConnection ) )
+    if ( ns.hasRootAccess( currentConnection ) && !IsServerLocked( ns, currentConnection ) )
     {
       let maxRam = GetMaxRamForServer( ns, currentConnection )
       totalMaxRam += maxRam

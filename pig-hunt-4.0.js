@@ -1,5 +1,3 @@
-
-
 //This script searches the network for low security, high-yield servers.
 
 import { GetReadableDateDelta } from "utility.js"
@@ -15,6 +13,7 @@ import { DistributeScriptsToNetwork } from "utility.js"
 import { DistribueScriptsToHome } from "utility.js"
 import { KillDuplicateScriptsOnHost } from "utility.js"
 
+const REQUIRED_THREADS_FILENAME = "unused_thread_report.txt"
 
 /** @param {NS} ns */
 function ServerData( name, money, maxMoney, securityLevel, secMinLevel, hackingLevel, hackingTime, 
@@ -61,6 +60,7 @@ For non-hack operations, we will only run threads on our home server that will b
 to ensure any available hacks are executed promptly and don't hold up the server farm's thread allocation chain.
 */
 const HOME_SERVER_MAX_TIME_UNTIL_THREAD_FINISHED = 60000
+const NETWORK_MAX_TIME_UNTIL_THREAD_FINISHED = 90000
 
 export async function main(ns) 
 {
@@ -260,11 +260,15 @@ export async function main(ns)
       }          
 
       let maxTimeUntilThreadFinished = 0
-      if ( clampedGrowThreads > maxTimeUntilThreadFinished )
+      if ( clampedGrowThreads > 0 )
         maxTimeUntilThreadFinished = growingTime 
         
-      if ( clampedWeakenThreads > maxTimeUntilThreadFinished )
-        maxTimeUntilThreadFinished += weakeningTime
+      if ( clampedWeakenThreads > 0 )
+      {
+        if ( weakeningTime > maxTimeUntilThreadFinished )
+          maxTimeUntilThreadFinished = weakeningTime
+      }
+        
 
       //We use this value to scale the maximum process time we allow to run on our home server based on how much free ram we have available.
       const clampedAvailableHomeRamUseFrac = sortedServer.requiredTotalThreads / clampedAvailableHomeThreads
@@ -357,6 +361,9 @@ export async function main(ns)
 
     const unallocatedThreadCount = totalNetworkThreadsAvailable - totalNetworkThreadsAllocated
     
+    const jsonStringWrite = JSON.stringify( unallocatedThreadCount )
+    await ns.write( REQUIRED_THREADS_FILENAME, jsonStringWrite, "w" )
+
     //if we have unallocated threads and we're not hacking 100% of targeted accounts.
     if ( unallocatedThreadCount > 0 && accountHackPercentile < 1.0 )
     {
