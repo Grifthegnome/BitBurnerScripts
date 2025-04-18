@@ -67,11 +67,10 @@ to ensure any available hacks are executed promptly and don't hold up the server
 */
 const HOME_SERVER_MAX_TIME_UNTIL_THREAD_FINISHED = 60000
 
-
-let compromisedServers = {}
-
 export async function main(ns) 
 {
+
+  let compromisedServers = {}
 
   if ( ns.fileExists( COMPROMISED_SERVER_FILENAME, "home" ) )
   {
@@ -301,9 +300,6 @@ export async function main(ns)
       //We use this value to scale the maximum process time we allow to run on our home server based on how much free ram we have available.
       const clampedAvailableHomeRamUseFrac = Math.min( sortedServer.requiredTotalThreads / clampedAvailableHomeThreads, 1.0 )
 
-      // if we could run this on our home machine, try that before allocating to farm, if the time to get the server to a hack is less than our max allowable time.
-      //if ( (sortedServer.requiredTotalThreads <= clampedAvailableHomeThreads) && maxTimeUntilThreadFinished <= ( HOME_SERVER_MAX_TIME_UNTIL_THREAD_FINISHED / clampedAvailableHomeRamUseFrac ) )
-      //if ( sortedServer.requiredTotalThreads <= clampedAvailableHomeThreads )
       if ( clampedAvailableHomeThreads > 0 && ( !(sortedServer.name in compromisedServers) || Object.keys(compromisedServers).length == searchedServers.length ) )
       {
         let homeClampedGrowThreads   = clampedGrowThreads
@@ -357,7 +353,7 @@ export async function main(ns)
 
       if ( !(sortedServer.name  in compromisedServers) )
       {
-        const uncompromisedServerMaxAllowedThreads = maxNetworkThreadsPossible * ( 1.0 - GetTotalFarmUsageForCompromisedServers() )
+        const uncompromisedServerMaxAllowedThreads = maxNetworkThreadsPossible * ( 1.0 - GetTotalFarmUsageForCompromisedServers( compromisedServers ) )
 
         if ( maxNetworkThreadsPossible - uncompromisedServerMaxAllowedThreads > remainingNetworkThreadsAvailable )
           continue
@@ -732,7 +728,7 @@ function CalculateWeakenThreads( ns, targetServer, weakenScript, growThreadCount
   return weakenThreads
 }
 
-function GetTotalFarmUsageForCompromisedServers()
+function GetTotalFarmUsageForCompromisedServers( compromisedServers )
 {
   const serverNames = Object.keys( compromisedServers )
 
