@@ -47,14 +47,14 @@ totalGrowingTime, totalWeakeningTime, hackPercentage, requiredGrowThreads, requi
 
   this.totalTime              = hackingTime + totalGrowingTime + totalWeakeningTime
 
-  this.totalTimeDevReadable   = this.requiredHackThreads > 0 ? "Finished Hacking In: " + GetReadableDateDelta( this.hackingTime ) : "Can Hack In: " + GetReadableDateDelta( this.totalGrowingTime + this.totalWeakeningTime )
+  const longestProcessTime = this.totalGrowingTime > this.totalWeakeningTime ? this.totalGrowingTime : this.totalWeakeningTime
+  this.totalTimeDevReadable   = this.requiredHackThreads > 0 ? "Finished Hacking In: " + GetReadableDateDelta( this.hackingTime ) : "Can Hack In: " + GetReadableDateDelta( longestProcessTime )
 
   this.hackPercentage = hackPercentage
 
-  //const longestProcessTime = this.totalGrowingTime > this.totalWeakeningTime ? this.totalGrowingTime : this.totalWeakeningTime
-  //this.heuristic = this.requiredHackThreads > 0 ? this.hackingTime : ( longestProcessTime ) * 1000 //GetTimeForEarningRatio( this.totalTime, maxMoney * hackPercentage )
+  this.heuristic = this.requiredHackThreads > 0 ? this.hackingTime : ( longestProcessTime ) * 1000 //GetTimeForEarningRatio( this.totalTime, maxMoney * hackPercentage )
 
-  this.heuristic = this.requiredHackThreads > 0 ? -this.requiredTotalThreads : this.requiredTotalThreads
+  //this.heuristic = this.requiredHackThreads > 0 ? -this.requiredTotalThreads : this.requiredTotalThreads
 }
 
 function ProcessThreadData( requiredThreads, activeThreads )
@@ -222,7 +222,7 @@ export async function main(ns)
       if ( sortedServer.requiredTotalThreads == 0 )
         continue
 
-      if ( sortedServer.requiredHackThreads > 0 && !(sortedServer.name  in compromisedServers) )
+      if ( sortedServer.requiredTotalThreads == 0 && !(sortedServer.name  in compromisedServers) )
       {
         compromisedServers[sortedServer.name] = (sortedServer.requiredTotalThreads + sortedServer.activeTotalThreads) / maxNetworkThreadsPossible 
         const jsonStringWrite = JSON.stringify( compromisedServers )
@@ -465,6 +465,9 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
 
   const myServers = ns.getPurchasedServers()
 
+  //ACTIVATE PIG_HUNT_RAM_ALLOCATION_KEY 
+  SetActiveRamPreallocationKeys( ns, [PIG_HUNT_RAM_ALLOCATION_KEY] )
+
   //Determine how many threads we can run on home as an overflow if needed.
   const maxHomeThreadsPossible    = GetMaxThreadCountForScript( ns, farmingScript, "home" )
   const totalHomeThreadsAvailable = GetThreadCountForScript( ns, farmingScript, "home" )
@@ -474,6 +477,9 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
 
   //Get availble threads.
   const availableThreads = GetTotalAvailableThreadsForScript( ns, "home", "home", farmingScript ) + clampedAvailableHomeThreads
+
+  //CLEAR PIG_HUNT_RAM_ALLOCATION_KEY
+  ClearActiveRamPreallocationKeys( ns )
 
   //If we don't have any free threads, don't bother running a ton of logic.
   if ( availableThreads == 0 )
@@ -556,7 +562,7 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
         const moneyPerHack = maxMoney * hackPercentage
         const targetHackPercentile = hackPercentage > accountHackPercentile ? hackPercentage : accountHackPercentile
 
-        let threadsToHack = moneyPerHack > 0 ? Math.floor( maxMoney * targetHackPercentile / moneyPerHack ) : 0
+        let threadsToHack = moneyPerHack > 0 ? Math.floor( maxMoney * ( targetHackPercentile / moneyPerHack ) ) : 0
         let currentActiveHackThreads = 0
         //Don't assign hacking threads if the server isn't ready to hack
         if ( securityLevel > secMinLevel || moneyAvailable < maxMoney )
@@ -572,11 +578,24 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
           }
         }
 
-        const growthThreadData      = CalculateGrowthThreads( ns, connectionName, growScript )
+        const growthThreadData = CalculateGrowthThreads( ns, connectionName, growScript )
         const weakenThreadData = CalculateWeakenThreads( ns, connectionName, weakenScript, growthThreadData.requiredThreads + growthThreadData.activeThreads, threadsToHack + currentActiveHackThreads )
 
-        const weakenTimeMult = weakenThreadData.requiredThreads > 0 ? Math.max( 1, Math.round( weakenThreadData.requiredThreads / availableThreads ) ) : 0
-        const growTimeMult   = growthThreadData.requiredThreads > 0 ? Math.max( 1, Math.round( growthThreadData.requiredThreads / availableThreads ) ) : 0
+        let availableGrowthThreadScalar = 1.0
+        let availableWeakenThreadScalar = 1.0
+        if ( weakenThreadData.requiredThreads > growthThreadData.requiredThreads )
+        {
+          availableGrowthThreadScalar = growthThreadData.requiredThreads / weakenThreadData.requiredThreads
+          availableWeakenThreadScalar = Math.max( 1.0 - availableGrowthThreadScalar, 0 )
+        }
+        else if ( growthThreadData.requiredThreads > weakenThreadData.requiredThreads )
+        {
+          availableWeakenThreadScalar = weakenThreadData.requiredThreads / growthThreadData.requiredThreads
+          availableGrowthThreadScalar = Math.max( 1.0 - availableWeakenThreadScalar, 0 )
+        }
+
+        const weakenTimeMult = weakenThreadData.requiredThreads > 0 ? Math.max( 1, Math.round( weakenThreadData.requiredThreads / ( availableThreads * availableWeakenThreadScalar ) ) ) : 0
+        const growTimeMult   = growthThreadData.requiredThreads > 0 ? Math.max( 1, Math.round( growthThreadData.requiredThreads / ( availableThreads * availableGrowthThreadScalar ) ) ) : 0
 
         //Assuming we have enough threads, this would be done in parallel.
         const totalWeakeningTime  = currentActiveHackThreads > 0 ? 0 : weakeningTime * weakenTimeMult
