@@ -24,7 +24,7 @@ const COMPROMISED_SERVER_FILENAME = "servers_compromised.txt"
 
 /** @param {NS} ns */
 function ServerData( name, money, maxMoney, securityLevel, secMinLevel, hackingLevel, hackingTime, 
-totalGrowingTime, totalWeakeningTime, hackPercentage, requiredGrowThreads, requiredWeakenThreads, requiredHackThreads )
+totalGrowingTime, totalWeakeningTime, hackPercentage, requiredGrowThreads, requiredWeakenThreads, requiredHackThreads, activeGrowThreads, activeWeakenThreads, activeHackThreads )
 {
   this.name                   = name
   this.money                  = money
@@ -39,6 +39,12 @@ totalGrowingTime, totalWeakeningTime, hackPercentage, requiredGrowThreads, requi
   this.requiredWeakenThreads  = requiredWeakenThreads
   this.requiredHackThreads    = requiredHackThreads
   this.requiredTotalThreads   = requiredGrowThreads + requiredWeakenThreads + requiredHackThreads
+
+  this.activeGrowThreads      = activeGrowThreads
+  this.activeWeakenThreads    = activeWeakenThreads
+  this.activeHackThreads      = activeHackThreads
+  this.activeTotalThreads     = activeGrowThreads + activeWeakenThreads + activeHackThreads
+
   this.totalTime              = hackingTime + totalGrowingTime + totalWeakeningTime
 
   this.totalTimeDevReadable   = this.requiredHackThreads > 0 ? "Finished Hacking In: " + GetReadableDateDelta( this.hackingTime ) : "Can Hack In: " + GetReadableDateDelta( this.totalGrowingTime + this.totalWeakeningTime )
@@ -48,10 +54,10 @@ totalGrowingTime, totalWeakeningTime, hackPercentage, requiredGrowThreads, requi
   //const longestProcessTime = this.totalGrowingTime > this.totalWeakeningTime ? this.totalGrowingTime : this.totalWeakeningTime
   //this.heuristic = this.requiredHackThreads > 0 ? this.hackingTime : ( longestProcessTime ) * 1000 //GetTimeForEarningRatio( this.totalTime, maxMoney * hackPercentage )
 
-  this.heuristic = this.requiredHackThreads > 0 ? this.requiredTotalThreads : this.requiredTotalThreads
+  this.heuristic = this.requiredHackThreads > 0 ? -this.requiredTotalThreads : this.requiredTotalThreads
 }
 
-function GrowthThreadData( requiredThreads, activeThreads )
+function ProcessThreadData( requiredThreads, activeThreads )
 {
   this.requiredThreads = requiredThreads
   this.activeThreads = activeThreads
@@ -218,13 +224,13 @@ export async function main(ns)
 
       if ( sortedServer.requiredHackThreads > 0 && !(sortedServer.name  in compromisedServers) )
       {
-        compromisedServers[sortedServer.name] = sortedServer.requiredTotalThreads / maxNetworkThreadsPossible 
+        compromisedServers[sortedServer.name] = (sortedServer.requiredTotalThreads + sortedServer.activeTotalThreads) / maxNetworkThreadsPossible 
         const jsonStringWrite = JSON.stringify( compromisedServers )
         await ns.write( COMPROMISED_SERVER_FILENAME, jsonStringWrite, "w" )
       }
       else if ( (sortedServer.name  in compromisedServers) && sortedServer.requiredHackThreads > 0 ) 
       {
-        compromisedServers[sortedServer.name] = sortedServer.requiredTotalThreads / maxNetworkThreadsPossible 
+        compromisedServers[sortedServer.name] = (sortedServer.requiredTotalThreads + sortedServer.activeTotalThreads) / maxNetworkThreadsPossible 
         const jsonStringWrite = JSON.stringify( compromisedServers )
         await ns.write( COMPROMISED_SERVER_FILENAME, jsonStringWrite, "w" )
       }
@@ -382,7 +388,7 @@ export async function main(ns)
       //  ns.tprint( serverSearchTime.getTime() + "Main Farm: Starting " + ( clampedHackThreads + clampedWeakenThreads ) + " thread of " + sortedServer.requiredTotalThreads +  " hack on " + sortedServer.name )
 
       //We only want compromised servers to use preallocated server farm ram.
-      const allocationKey = sortedServer.name  in compromisedServers ? [PIG_HUNT_RAM_ALLOCATION_KEY] : []
+      const allocationKey = sortedServer.name in compromisedServers ? [PIG_HUNT_RAM_ALLOCATION_KEY] : []
       const threadsAllocated    = DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList, allocationKey )
         
       if ( threadsAllocated <= 0 && sortedServer.requiredTotalThreads > 0 )
@@ -566,10 +572,10 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
           }
         }
 
-        const growthThreadData   = CalculateGrowthThreads( ns, connectionName, growScript )
-        const requiredWeakenThreads = CalculateWeakenThreads( ns, connectionName, weakenScript, growthThreadData.requiredThreads + growthThreadData.activeThreads, threadsToHack + currentActiveHackThreads )
+        const growthThreadData      = CalculateGrowthThreads( ns, connectionName, growScript )
+        const weakenThreadData = CalculateWeakenThreads( ns, connectionName, weakenScript, growthThreadData.requiredThreads + growthThreadData.activeThreads, threadsToHack + currentActiveHackThreads )
 
-        const weakenTimeMult = requiredWeakenThreads > 0 ? Math.max( 1, Math.round( requiredWeakenThreads / availableThreads ) ) : 0
+        const weakenTimeMult = weakenThreadData.requiredThreads > 0 ? Math.max( 1, Math.round( weakenThreadData.requiredThreads / availableThreads ) ) : 0
         const growTimeMult   = growthThreadData.requiredThreads > 0 ? Math.max( 1, Math.round( growthThreadData.requiredThreads / availableThreads ) ) : 0
 
         //Assuming we have enough threads, this would be done in parallel.
@@ -585,7 +591,7 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
           
 
         //THIS IS MOST LIKELY WRONG AND WE SHOULD RE-MATH IT.
-        const totalThreadCount = threadsToHack + growthThreadData.requiredThreads + requiredWeakenThreads
+        const totalThreadCount = threadsToHack + growthThreadData.requiredThreads + weakenThreadData.requiredThreads
 
         if ( PIG_HUNT_DEBUG_PRINTS )
           ns.tprint( "Thread Estimation for " + connectionName + ": " + totalThreadCount )
@@ -614,8 +620,11 @@ async function ServerSearch( ns, targetServer, parentServer, accountHackPercenti
           totalWeakeningTime,
           hackPercentage,
           growthThreadData.requiredThreads,
-          requiredWeakenThreads,
-          threadsToHack
+          weakenThreadData.requiredThreads,
+          threadsToHack,
+          growthThreadData.activeThreads,
+          weakenThreadData.activeThreads,
+          currentActiveHackThreads          
           )
 
           searchedServers.push( serverData )
@@ -682,12 +691,12 @@ function CalculateGrowthThreads( ns, targetServer, growScript )
     const currentActiveGrowThreads = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", growScript, [targetServer] ) + GetTotalThreadsRunningScriptOnHome( ns, growScript, [targetServer] )
     const reqGrowthThreads = Math.max( 0, growthThreads - currentActiveGrowThreads )  
     
-    const growthThreadData = new GrowthThreadData( reqGrowthThreads, currentActiveGrowThreads )
+    const growthThreadData = new ProcessThreadData( reqGrowthThreads, currentActiveGrowThreads )
 
     return growthThreadData
   }
       
-  const growthThreadData = new GrowthThreadData( growthThreads, 0 )
+  const growthThreadData = new ProcessThreadData( growthThreads, 0 )
 
   return growthThreadData
 
@@ -714,10 +723,13 @@ function CalculateWeakenThreads( ns, targetServer, weakenScript, growThreadCount
     const currentActiveWeakenThreads  = GetTotalThreadsRunningScriptOnNetwork( ns, "home", "home", weakenScript, [targetServer] ) + GetTotalThreadsRunningScriptOnHome( ns, weakenScript, [targetServer] )
     const reqWeakenThreads = Math.max( 0, weakenThreads - currentActiveWeakenThreads)
     
-    return reqWeakenThreads
+    const weakenThreadData = new ProcessThreadData( reqWeakenThreads, currentActiveWeakenThreads )
+    return weakenThreadData
   }
 
-  return weakenThreads
+  const weakenThreadData = new ProcessThreadData( weakenThreads, 0 )
+
+  return weakenThreadData
 }
 
 function GetTotalFarmUsageForCompromisedServers( compromisedServers )
