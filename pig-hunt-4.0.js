@@ -219,9 +219,6 @@ export async function main(ns)
       //if ( sortedServer.heuristic <= 0  )
       //  continue
 
-      if ( sortedServer.requiredTotalThreads == 0 )
-        continue
-
       if ( sortedServer.requiredTotalThreads == 0 && !(sortedServer.name  in compromisedServers) )
       {
         compromisedServers[sortedServer.name] = (sortedServer.requiredTotalThreads + sortedServer.activeTotalThreads) / maxNetworkThreadsPossible 
@@ -234,6 +231,9 @@ export async function main(ns)
         const jsonStringWrite = JSON.stringify( compromisedServers )
         await ns.write( COMPROMISED_SERVER_FILENAME, jsonStringWrite, "w" )
       }
+
+      if ( sortedServer.requiredTotalThreads == 0 )
+        continue
 
       const hackingTime       = ns.getHackTime( sortedServer.name )
       const growingTime       = ns.getGrowTime( sortedServer.name )
