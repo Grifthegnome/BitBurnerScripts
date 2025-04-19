@@ -3,7 +3,7 @@ export async function main(ns)
 {
   ns.exec( "home-cleanup.js", "home" )
 
-  await ns.sleep(1.0)
+  await ns.sleep(1000)
 
   ns.exec( "R-NUKE.js", "home" )
   ns.exec( "pig-hunt-4.0.js", "home" )
