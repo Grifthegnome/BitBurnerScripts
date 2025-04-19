@@ -1,9 +1,12 @@
-const SERVER_LOCK_FILE_NAME        = "locked_servers.txt"
+const SERVER_LOCK_FILE_NAME                         = "servers_locked.txt"
+const SERVER_RAM_PREALLOCATION_FILENAME             = "servers_ram_prealloc.txt"
+const SERVER_RAM_PREALLOCATION_ACTIVE_KEYS_FILENAME = "servers_ram_prealloc_active_keys.txt"
 
-export function AvailableServerData( name, availableThreads )
+export function AvailableServerData( name, availableThreads, availableRam )
 {
   this.name             = name
   this.availableThreads = availableThreads
+  this.availableRam     = availableRam
 }
 
 export function ScriptPauseData( hostServerName, scriptName, threadCount, scriptArgs )
@@ -96,7 +99,8 @@ export function GetThreadCountForScript( ns, scriptName, serverName )
   const scriptRam     = ns.getScriptRam( scriptName )
   const ramUsed       = ns.getServerUsedRam( serverName )
   const ramLimit      = ns.getServerMaxRam( serverName )
-  const availableRam  = ramLimit - ramUsed
+  const preallocRam   = GetTotalPreallocatedRamForServerExcludingActiveKeys( ns, serverName )
+  const availableRam  = (ramLimit - preallocRam) - ramUsed
 
   const threads = Math.floor( availableRam / scriptRam )
 
@@ -106,9 +110,10 @@ export function GetThreadCountForScript( ns, scriptName, serverName )
 export function GetMaxThreadCountForScript( ns, scriptName, serverName )
 {
   const scriptRam     = ns.getScriptRam( scriptName )
+  const preallocRam   = GetTotalPreallocatedRamForServerExcludingActiveKeys( ns, serverName )
   const ramLimit      = ns.getServerMaxRam( serverName )
 
-  const threads = Math.floor( ramLimit / scriptRam )
+  const threads = Math.floor( (ramLimit - preallocRam) / scriptRam )
 
   return threads
 }
@@ -117,14 +122,18 @@ export function GetAvailableRamForServer( ns, serverName )
 {
   const ramLimit      = ns.getServerMaxRam( serverName )
   const ramUsed       = ns.getServerUsedRam( serverName )
-  const ramAvailable  = ramLimit - ramUsed
+  const preallocRam   = GetTotalPreallocatedRamForServerExcludingActiveKeys( ns, serverName )
+  const ramAvailable  = ( ramLimit - preallocRam ) - ramUsed
 
-  return ramAvailable
+  return Math.max( ramAvailable, 0 )
 }
 
 export function GetMaxRamForServer( ns, serverName )
 {
-  return ns.getServerMaxRam( serverName )
+  const ramLimit      = ns.getServerMaxRam( serverName )
+  const preallocRam   = GetTotalPreallocatedRamForServerExcludingActiveKeys( ns, serverName )
+
+  return Math.max( ramLimit - preallocRam, 0 )
 }
 
 export function KillAllNetworkProcesses( ns, hostServer, parentServer )
@@ -374,6 +383,198 @@ export async function UnlockAllServers( ns )
     ns.rm( SERVER_LOCK_FILE_NAME )
 }
 
+export async function SetActiveRamPreallocationKeys( ns, allocationKeys )
+{
+
+  if ( !Array.isArray(allocationKeys) )
+    throw new Error( "allocationKeys must be an array." )
+
+  const jsonStringWrite = JSON.stringify( allocationKeys )
+  await ns.write( SERVER_RAM_PREALLOCATION_ACTIVE_KEYS_FILENAME, jsonStringWrite, "w" )
+}
+
+export async function ClearActiveRamPreallocationKeys( ns )
+{
+  if ( ns.fileExists( SERVER_RAM_PREALLOCATION_ACTIVE_KEYS_FILENAME ) )
+  {
+    ns.rm( SERVER_RAM_PREALLOCATION_ACTIVE_KEYS_FILENAME )
+  }
+}
+
+export async function PreallocateServerRamForKey( ns, serverName, allocationKey, ram )
+{
+  if ( ns.fileExists( SERVER_RAM_PREALLOCATION_FILENAME ) )
+  {
+    const jsonStringRead = ns.read( SERVER_RAM_PREALLOCATION_FILENAME )
+    let serverPreallocations = JSON.parse( jsonStringRead )
+
+    if ( serverName in serverPreallocations )
+    {
+      if ( allocationKey in serverPreallocations[serverName] )
+      {
+        const previouslyAllocatedRam = serverPreallocations[serverName][allocationKey]
+        const totalRamAlloc = previouslyAllocatedRam + ram
+        serverPreallocations[serverName][allocationKey] = totalRamAlloc
+
+        //To Do: We need to make sure the total number of preallocations across keys don't exceed the server's ram limit.
+      }
+      else
+      {
+        let allocationForKey = {}
+        allocationForKey[ allocationKey ] = ram
+        serverPreallocations[ serverName ] = allocationForKey
+      }
+    }
+    else
+    {
+      let allocationForKey = {}
+      allocationForKey[ allocationKey ] = ram
+      serverPreallocations[ serverName ] = allocationForKey
+    }
+
+    const jsonStringWrite = JSON.stringify( serverPreallocations )
+    await ns.write( SERVER_RAM_PREALLOCATION_FILENAME, jsonStringWrite, "w" )
+  }
+  else
+  {
+    let allocationForKey = {}
+    allocationForKey[ allocationKey ] = ram
+    let serverPreallocations = {}
+    serverPreallocations[serverName] = allocationForKey
+
+    const jsonStringWrite = JSON.stringify( serverPreallocations )
+    await ns.write( SERVER_RAM_PREALLOCATION_FILENAME, jsonStringWrite, "w" )
+  }
+}
+
+export function GetTotalPreallocatedRamForServerExcludingActiveKeys( ns, serverName )
+{
+  let excludedKeys = []
+  if ( ns.fileExists( SERVER_RAM_PREALLOCATION_ACTIVE_KEYS_FILENAME ) )
+  {
+    const jsonStringRead = ns.read( SERVER_RAM_PREALLOCATION_ACTIVE_KEYS_FILENAME )
+    excludedKeys = JSON.parse( jsonStringRead )
+  }
+
+  let totalPreallocatedRam = 0
+
+  if ( ns.fileExists( SERVER_RAM_PREALLOCATION_FILENAME ) )
+  {
+    const jsonStringRead = ns.read( SERVER_RAM_PREALLOCATION_FILENAME )
+    let serverPreallocations = JSON.parse( jsonStringRead )
+
+    if ( serverName in serverPreallocations )
+    {
+      const allocationKeys = Object.keys( serverPreallocations[serverName] )
+      for ( let i = 0; i < allocationKeys.length; i++ )
+      {
+        const allocationKey = allocationKeys[i]
+        if ( excludedKeys.includes( allocationKey ) )
+          continue
+
+        totalPreallocatedRam += serverPreallocations[serverName][allocationKey]
+      } 
+    }    
+  }
+
+  return totalPreallocatedRam
+
+}
+
+export function GetTotalPreallocatedRamForServerForActiveKeys( ns, serverName )
+{
+  let activeKeys = []
+  if ( ns.fileExists( SERVER_RAM_PREALLOCATION_ACTIVE_KEYS_FILENAME ) )
+  {
+    const jsonStringRead = ns.read( SERVER_RAM_PREALLOCATION_ACTIVE_KEYS_FILENAME )
+    activeKeys = JSON.parse( jsonStringRead )
+  }
+
+  let totalPreallocatedRam = 0
+
+  if ( ns.fileExists( SERVER_RAM_PREALLOCATION_FILENAME ) )
+  {
+    const jsonStringRead = ns.read( SERVER_RAM_PREALLOCATION_FILENAME )
+    let serverPreallocations = JSON.parse( jsonStringRead )
+
+    if ( serverName in serverPreallocations )
+    {
+      const allocationKeys = Object.keys( serverPreallocations[serverName] )
+      for ( let i = 0; i < allocationKeys.length; i++ )
+      {
+        const allocationKey = allocationKeys[i]
+        if ( !activeKeys.includes( allocationKey ) )
+          continue
+
+        totalPreallocatedRam += serverPreallocations[serverName][allocationKey]
+      } 
+    }    
+  }
+
+  return totalPreallocatedRam
+
+}
+
+export async function ReleasePreallocatedServerRamForKeyOnServer( ns, serverName, allocationKey )
+{
+  if ( ns.fileExists( SERVER_RAM_PREALLOCATION_FILENAME ) )
+  {
+    const jsonStringRead = ns.read( SERVER_RAM_PREALLOCATION_FILENAME )
+    let serverPreallocations = JSON.parse( jsonStringRead )
+
+    if ( serverName in serverPreallocations )
+    {
+      if ( allocationKey in serverPreallocations[serverName] )
+      {
+        delete serverPreallocations[serverName][ allocationKey ]
+
+        if ( Object.keys( serverPreallocations[serverName] ).length == 0 )
+          delete serverPreallocations[ serverName ]
+
+        const jsonStringWrite = JSON.stringify( serverPreallocations )
+        await ns.write( SERVER_RAM_PREALLOCATION_FILENAME, jsonStringWrite, "w" )
+      }
+    }
+  }
+}
+
+export async function ReleaseAllPreallocatedServerRamForKey( ns, allocationKey )
+{
+  if ( ns.fileExists( SERVER_RAM_PREALLOCATION_FILENAME ) )
+  {
+    const jsonStringRead = ns.read( SERVER_RAM_PREALLOCATION_FILENAME )
+    let serverPreallocations = JSON.parse( jsonStringRead )
+
+    const serverNames = Object.keys( serverPreallocations )
+    let serversToRemove = []
+
+    for( let i = 0; i < serverNames.length; i++ )
+    {
+      const serverName = serverNames[i]
+      if ( serverName in serverPreallocations )
+      {
+        if ( allocationKey in serverPreallocations[serverName] )
+        {
+          delete serverPreallocations[serverName][allocationKey]
+
+          if ( Object.keys( serverPreallocations[serverName] ).length == 0 )
+            serversToRemove.push( serverName )
+        }
+      }
+    }
+
+    for( let i = 0; i < serversToRemove.length; i++ )
+    {
+      const serverToRemove = serversToRemove[i]
+      delete serverPreallocations[serverToRemove]
+    }
+
+    const jsonStringWrite = JSON.stringify( serverPreallocations )
+    await ns.write( SERVER_RAM_PREALLOCATION_FILENAME, jsonStringWrite, "w" )
+
+  }
+}
+
 export function GetTotalAvailableThreadsForScript( ns, hostServer, parentServer, scriptName )
 {  
 
@@ -455,7 +656,7 @@ export function GetAvailableServersForScript( ns, hostServer, parentServer, scri
 
       if ( availableThreads > 0 )
       {
-        let availableServer = new AvailableServerData( currentConnection, availableThreads )
+        let availableServer = new AvailableServerData( currentConnection, availableThreads, -1 )
         availableServerList.push( availableServer )
       }
         
@@ -474,7 +675,7 @@ export function GetAvailableServersForScript( ns, hostServer, parentServer, scri
 
 export function AllocateThreadsForScriptToGivenServers( ns, threadCount, scriptName, scriptArgs, availableServerList )
 {
-  availableServerList.sort( (serverDataA, serverDataB ) => ns.getServerMaxRam( serverDataB.name ) - ns.getServerMaxRam( serverDataA.name ) )
+  availableServerList.sort( (serverDataA, serverDataB ) => GetMaxRamForServer( ns, serverDataB.name ) - GetMaxRamForServer( ns, serverDataA.name ) )
 
   let threadsAllocated = 0
 
@@ -540,7 +741,7 @@ export function DistribueScriptsToHome( ns, scriptNameList, scriptArgsList, thre
 
     if ( availableThreads > 0 )
     {
-      const homeServerData = new AvailableServerData( "home", availableThreads )
+      const homeServerData = new AvailableServerData( "home", availableThreads, -1 )
     
       const availableServerList = [ homeServerData ]
 
@@ -557,7 +758,7 @@ export function DistribueScriptsToHome( ns, scriptNameList, scriptArgsList, thre
 
 }
 
-export function DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList )
+export function DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList, preAllocationKeys )
 {
   /*
   This function should be provided an array of script names, a 2D array of script args, and an array
@@ -566,6 +767,15 @@ export function DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, 
 
   We prioritize running scripts from first to last index.
   */
+
+  /*
+  Note: Remember that we allow servers to have chunks of ram preallocated for certain tasks. Unless the keys are set as active, This function will not be able to access 
+  that ram.
+  */
+
+  //SET ACTIVE KEYS
+  SetActiveRamPreallocationKeys( ns, preAllocationKeys )
+
 
   if ( scriptNameList.length != scriptArgsList.length && scriptNameList.length != threadCountList.length )
     throw new Error( "scriptNameList, scriptArgsList, and threadCountList much have matching lengths." )
@@ -591,7 +801,131 @@ export function DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, 
     totalThreadsAllocated += threadsAllocated
   }
 
+  //CLEAR ACTIVE KEYS
+  ClearActiveRamPreallocationKeys( ns )
+
   return totalThreadsAllocated
+}
+
+export function PreallocateRamForKeyOnNetwork( ns, preallocatedRam, allocationKey )
+{
+
+  let availableServerList = GetBestServersToPreallocateRamForKeyOnNetwork( ns, "home", "home" )
+  availableServerList.sort( (serverDataA, serverDataB ) => serverDataB.availableRam - serverDataA.availableRam )
+
+  let remainingRamNeeded = preallocatedRam
+
+  for ( let i = 0; i < availableServerList.length; i++ )
+  {
+
+    if ( remainingRamNeeded <= 0 )
+      break
+
+    const serverData = availableServerList[i]
+
+    if ( serverData.availableRam < remainingRamNeeded )
+    {
+      PreallocateServerRamForKey( ns, serverData.name, allocationKey, serverData.availableRam )
+      remainingRamNeeded -= serverData.availableRam
+    }
+    else
+    {
+      PreallocateServerRamForKey( ns, serverData.name, allocationKey, remainingRamNeeded )
+      remainingRamNeeded -= remainingRamNeeded
+    }
+  }
+}
+
+function GetBestServersToPreallocateRamForKeyOnNetwork( ns, hostServer, parentServer )
+{  
+  //This should be called with "home" as the starting server by the caller.
+  const connections = ns.scan( hostServer )
+
+  let availableServerList = Array()
+
+  for ( let i = 0; i < connections.length; i++ )
+  {
+    const currentConnection = connections[ i ]
+
+    if ( currentConnection == parentServer )
+      continue
+
+    if ( ns.hasRootAccess( currentConnection ) && !IsServerLocked( ns, currentConnection ) )
+    {
+      let maxRam = GetMaxRamForServer( ns, currentConnection )
+
+      if ( maxRam > 0 )
+      {
+        let availableServer = new AvailableServerData( currentConnection, -1, maxRam )
+        availableServerList.push( availableServer )
+      }
+    }
+      
+    let branchAvailableServers = GetBestServersToPreallocateRamForKeyOnNetwork( ns, currentConnection, hostServer )
+    
+    if ( branchAvailableServers.length > 0 )
+      availableServerList = availableServerList.concat( branchAvailableServers )
+
+  }
+
+  return availableServerList
+
+}
+
+export function GetPreallocateRamForActiveKeysOnNetwork( ns, hostServer, parentServer )
+{  
+  //This should be called with "home" as the starting server by the caller.
+  const connections = ns.scan( hostServer )
+
+  let availableServerList = Array()
+
+  let totalPreallocatedRam = 0
+
+  for ( let i = 0; i < connections.length; i++ )
+  {
+    const currentConnection = connections[ i ]
+
+    if ( currentConnection == parentServer )
+      continue
+
+    if ( ns.hasRootAccess( currentConnection ) && !IsServerLocked( ns, currentConnection ) )
+    {
+      totalPreallocatedRam += GetTotalPreallocatedRamForServerForActiveKeys(ns, currentConnection)
+    }
+      
+    totalPreallocatedRam += GetPreallocateRamForActiveKeysOnNetwork( ns, currentConnection, hostServer )
+  }
+
+  return totalPreallocatedRam
+  
+}
+
+export function GetPreallocateRamExcludingActiveKeysOnNetwork( ns, hostServer, parentServer )
+{  
+  //This should be called with "home" as the starting server by the caller.
+  const connections = ns.scan( hostServer )
+
+  let availableServerList = Array()
+
+  let totalPreallocatedRam = 0
+
+  for ( let i = 0; i < connections.length; i++ )
+  {
+    const currentConnection = connections[ i ]
+
+    if ( currentConnection == parentServer )
+      continue
+
+    if ( ns.hasRootAccess( currentConnection ) && !IsServerLocked( ns, currentConnection ) )
+    {
+      totalPreallocatedRam += GetTotalPreallocatedRamForServerExcludingActiveKeys(ns, currentConnection)
+    }
+      
+    totalPreallocatedRam += GetPreallocateRamExcludingActiveKeysOnNetwork( ns, currentConnection, hostServer )
+  }
+
+  return totalPreallocatedRam
+  
 }
 
 export function GetTotalThreadsRunningScriptOnHome( ns, scriptName, matchingArgs )

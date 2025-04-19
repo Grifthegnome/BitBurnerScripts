@@ -13,8 +13,14 @@ import { DistributeScriptsToNetwork } from "utility.js"
 import { DistribueScriptsToHome } from "utility.js"
 import { KillDuplicateScriptsOnHost } from "utility.js"
 
+import { SetActiveRamPreallocationKeys } from "utility.js"
+import { ClearActiveRamPreallocationKeys } from "utility.js" 
+import { GetPreallocateRamForActiveKeysOnNetwork } from "utility.js"
+import { PreallocateRamForKeyOnNetwork } from "utility.js"
+import { ReleaseAllPreallocatedServerRamForKey } from "utility.js"
+
 const REQUIRED_THREADS_FILENAME = "unused_thread_report.txt"
-const COMPROMISED_SERVER_FILENAME = "compromised_servers.txt"
+const COMPROMISED_SERVER_FILENAME = "servers_compromised.txt"
 
 /** @param {NS} ns */
 function ServerData( name, money, maxMoney, securityLevel, secMinLevel, hackingLevel, hackingTime, 
@@ -58,6 +64,8 @@ const ACCOUNT_HACK_PERCENTILE = 0.2
 //The max percentage of ram threads allocated by this script can use on our home server, we always want head room to run other scripts.
 const HOME_SERVER_MAX_RAM_USAGE = 0.75
 
+const PIG_HUNT_RAM_ALLOCATION_KEY = "ph_compromised_alloc"
+
 export async function main(ns) 
 {
 
@@ -83,10 +91,10 @@ export async function main(ns)
   const growScript      = "server-grow.js"
   const shareScript     = "server-share.js"
 
-  const hackScriptRam       = ns.getScriptRam( hackScript )
-  const weakenScriptRam     = ns.getScriptRam( weakenScript )
-  const growScriptRam       = ns.getScriptRam( growScript )
-  const shareScriptRam      = ns.getScriptRam( shareScript )
+  const hackScriptRam       = ns.getScriptRam( hackScript, "home" )
+  const weakenScriptRam     = ns.getScriptRam( weakenScript, "home" )
+  const growScriptRam       = ns.getScriptRam( growScript, "home" )
+  const shareScriptRam      = ns.getScriptRam( shareScript, "home" )
 
   //For now assign the farming script for the search to be the script with the highest ram cost.
   let farmingScript = hackScript
@@ -159,7 +167,10 @@ export async function main(ns)
       let sortedServer = searchedServers[ i ]
       totalRequiredThreads += sortedServer.requiredTotalThreads 
     }
-      
+
+    //ACTIVATE PIG_HUNT_RAM_ALLOCATION_KEY 
+    SetActiveRamPreallocationKeys( ns, [PIG_HUNT_RAM_ALLOCATION_KEY] )
+
     //Determine how many threads we can run on home as an overflow if needed.
     const maxHomeThreadsPossible    = GetMaxThreadCountForScript( ns, farmingScript, "home" )
     const totalHomeThreadsAvailable = GetThreadCountForScript( ns, farmingScript, "home" )
@@ -170,6 +181,21 @@ export async function main(ns)
     const maxNetworkThreadsPossible = GetMaxThreadsForScript( ns, "home", "home", farmingScript )
     let totalNetworkThreadsAvailable = GetTotalAvailableThreadsForScript( ns, "home", "home", farmingScript )
     let totalNetworkThreadsAllocated = 0
+
+    const compromisedServerFarmUsageFrac = GetTotalFarmUsageForCompromisedServers( compromisedServers )
+    const targetPreallocThreads = Math.ceil(maxNetworkThreadsPossible * compromisedServerFarmUsageFrac)
+    const targetPreallocRam     = Math.ceil(targetPreallocThreads * highestRamCost)
+
+    const preallocatedRamOnNetwork = GetPreallocateRamForActiveKeysOnNetwork( ns, "home", "home" )
+    
+    //CLEAR PIG_HUNT_RAM_ALLOCATION_KEY
+    ClearActiveRamPreallocationKeys( ns )
+
+    if ( targetPreallocRam != preallocatedRamOnNetwork )
+    {
+      ReleaseAllPreallocatedServerRamForKey( ns, PIG_HUNT_RAM_ALLOCATION_KEY )
+      PreallocateRamForKeyOnNetwork( ns, targetPreallocRam, PIG_HUNT_RAM_ALLOCATION_KEY )
+    }
 
     let shortestHackTime = 1000
 
@@ -285,7 +311,7 @@ export async function main(ns)
       }
         
       //We use this value to scale the maximum process time we allow to run on our home server based on how much free ram we have available.
-      const clampedAvailableHomeRamUseFrac = Math.min( sortedServer.requiredTotalThreads / clampedAvailableHomeThreads, 1.0 )
+      //const clampedAvailableHomeRamUseFrac = Math.min( sortedServer.requiredTotalThreads / clampedAvailableHomeThreads, 1.0 )
 
       if ( clampedAvailableHomeThreads > 0 && ( !(sortedServer.name in compromisedServers) || Object.keys(compromisedServers).length == searchedServers.length ) )
       {
@@ -335,35 +361,9 @@ export async function main(ns)
       //Don't allow us to continue if we can't run a full hack.
       if ( remainingNetworkThreadsAvailable < clampedHackThreads + clampedWeakenThreads && clampedHackThreads > 0 )
         continue
-
-      //If this is a server we have never hacked before, scale back the number of threads we are allowed to run, so we don't jam up the server farm and block servers we can hack.
-
-      if ( !(sortedServer.name  in compromisedServers) )
-      {
-        const uncompromisedServerMaxAllowedThreads = maxNetworkThreadsPossible * ( 1.0 - GetTotalFarmUsageForCompromisedServers( compromisedServers ) )
-
-        if ( maxNetworkThreadsPossible - uncompromisedServerMaxAllowedThreads > remainingNetworkThreadsAvailable )
-          continue
-
-        if ( uncompromisedServerMaxAllowedThreads < sortedServer.requiredTotalThreads )
-        {
-
-          const maxAvailableThreads = uncompromisedServerMaxAllowedThreads > remainingNetworkThreadsAvailable ? remainingNetworkThreadsAvailable : uncompromisedServerMaxAllowedThreads
-
-          //We should replace this with thread scaling, so we can make some progress on new uncompromised servers.
-          const threadsNeededScalar = maxAvailableThreads / sortedServer.requiredTotalThreads
-          clampedGrowThreads    = Math.round( clampedGrowThreads * threadsNeededScalar )
-          clampedWeakenThreads  = Math.round( clampedWeakenThreads * threadsNeededScalar )
-          clampedHackThreads    = Math.round( clampedHackThreads * threadsNeededScalar )
-
-          const postScaleTotalThreadsNeeded  = clampedWeakenThreads + clampedGrowThreads + clampedHackThreads
-          
-          if ( postScaleTotalThreadsNeeded > remainingNetworkThreadsAvailable )
-            continue
-        }
-      }
+      
       //If we don't have enough threads, we want to scale down our thread requirements by a uniform scalar so that we still run some of each of our required threads.
-      else if ( sortedServer.requiredTotalThreads > remainingNetworkThreadsAvailable )
+      if ( sortedServer.requiredTotalThreads > remainingNetworkThreadsAvailable )
       {
         const threadsNeededScalar = remainingNetworkThreadsAvailable / sortedServer.requiredTotalThreads
         clampedGrowThreads    = Math.round( clampedGrowThreads * threadsNeededScalar )
@@ -381,7 +381,9 @@ export async function main(ns)
       //if ( clampedHackThreads )
       //  ns.tprint( serverSearchTime.getTime() + "Main Farm: Starting " + ( clampedHackThreads + clampedWeakenThreads ) + " thread of " + sortedServer.requiredTotalThreads +  " hack on " + sortedServer.name )
 
-      const threadsAllocated    = DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList )
+      //We only want compromised servers to use preallocated server farm ram.
+      const allocationKey = sortedServer.name  in compromisedServers ? [PIG_HUNT_RAM_ALLOCATION_KEY] : []
+      const threadsAllocated    = DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList, allocationKey )
         
       if ( threadsAllocated <= 0 && sortedServer.requiredTotalThreads > 0 )
         break
@@ -436,7 +438,7 @@ export async function main(ns)
         const scriptNameList = [ shareScript ]
         const scriptArgsList = [ [] ]
         const threadCountList = [ shareThreadsToAllocate ]
-        DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList )
+        DistributeScriptsToNetwork( ns, scriptNameList, scriptArgsList, threadCountList, [PIG_HUNT_RAM_ALLOCATION_KEY] )
       }
     }
     
