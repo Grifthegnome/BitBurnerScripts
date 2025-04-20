@@ -166,12 +166,16 @@ export async function main(ns)
     //CONTROL CHAOS (WE HEAL FIRST BECAUSE CHAOS NATURALLY DECREASES)
     else if ( highestChaos >= BLADEBURNER_MAX_ALLOWED_CHAOS || bladeburnerState == eBladeburnerStates.CHAOS_CONTROL )
     {
+      if ( bladeburnerState != eBladeburnerStates.CHAOS_CONTROL )
+      {
+        const travelSucessful = ns.bladeburner.switchCity( mostChaoticCity )
+
+        if ( travelSucessful )
+          currentCity = mostChaoticCity
+      }
+
       //Travel to high chaos city to control chaos.
       bladeburnerState = eBladeburnerStates.CHAOS_CONTROL
-      const travelSucessful = ns.bladeburner.switchCity( mostChaoticCity )
-
-      if ( travelSucessful )
-        currentCity = mostChaoticCity
     }
     //GATHER INTEL AT REGULAR INTERVALS
     else if ( systemDate.getTime() - lastIntelGatherTime <= BLADEBURNER_INTEL_INTERVAL || lastIntelGatherTime < 0 )
