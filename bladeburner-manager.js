@@ -2,6 +2,7 @@ import { KillDuplicateScriptsOnHost } from "utility.js"
 import { AddCommasToNumber } from "utility.js"
 
 const BLADEBURNER_LAST_INTEL_TIME_FILENAME = "bladeburner_intel_time.txt"
+const BLADEBURNER_LAST_CITY_POP_FILENAME = "bladeburner_last_city_pop.txt"
 
 const BLADEBURNER_MAX_ALLOWED_CHAOS = 1.0
 const BLADEBURNER_ACCEPTABLE_CHAOS_LEVEL = 0.5
@@ -20,15 +21,6 @@ export async function main(ns)
 {
 
   const cityNames = [ "Aevum", "Chongqing", "Sector-12", "New Tokyo", "Ishima", "Volhaven" ]
-
-  const lowPopByCity = Object.freeze({
-    "Aevum": 1695198732,
-    "Chongqing": 1410991011,
-    "Sector-12": 0, //NEED ENTRIES
-    "New Tokyo": 736160916,
-    "Ishima": 1344484272,
-    "Volhaven": 1939339264,
-  })
 
   const eBladeburnerStates = Object.freeze({
     DOWNTIME: 0,
@@ -94,6 +86,20 @@ export async function main(ns)
     lastIntelGatherTime = JSON.parse( jsonStringRead )
   }
 
+  let lastPopByCity = {
+    "Aevum": 0,
+    "Chongqing": 0,
+    "Sector-12": 0,
+    "New Tokyo": 0,
+    "Ishima": 0,
+    "Volhaven": 0,
+  }
+  if ( ns.fileExists( BLADEBURNER_LAST_CITY_POP_FILENAME ) )
+  {
+    const jsonStringRead = ns.read( BLADEBURNER_LAST_CITY_POP_FILENAME )
+    lastPopByCity = JSON.parse( jsonStringRead )
+  }
+
   while ( true )
   {
 
@@ -112,6 +118,9 @@ export async function main(ns)
 
     let stamina = ns.bladeburner.getStamina()
     let player  = ns.getPlayer()
+
+    let bestCityChaos = -1
+    let bestCity = currentCity
 
     let highestChaos = -1
     let mostChaoticCity = currentCity
@@ -145,12 +154,8 @@ export async function main(ns)
 
       if ( cityChaos > highestChaos )
       {
-        //if a city already has low synth pop. we don't need to control chaos.
-        if ( lowPopByCity[cityName] < cityEstPop )
-        {
-          mostChaoticCity = cityName
-          highestChaos = cityChaos
-        } 
+        mostChaoticCity = cityName
+        highestChaos = cityChaos
       }
 
       if ( cityChaos < lowestChaos || lowestChaos < 0 )
@@ -163,6 +168,9 @@ export async function main(ns)
       {
         mostPopulatedCity = cityName
         largestPopulation = cityEstPop
+
+        bestCity = cityName
+        bestCityChaos = cityChaos
       }
         
       if ( cityName == currentCity )
@@ -207,14 +215,14 @@ export async function main(ns)
       bladeburnerState = eBladeburnerStates.GATHER_INTEL
     }
     //CONTROL CHAOS (WE HEAL FIRST BECAUSE CHAOS NATURALLY DECREASES)
-    else if ( highestChaos >= BLADEBURNER_MAX_ALLOWED_CHAOS || bladeburnerState == eBladeburnerStates.CHAOS_CONTROL )
+    else if ( bestCityChaos >= BLADEBURNER_MAX_ALLOWED_CHAOS || bladeburnerState == eBladeburnerStates.CHAOS_CONTROL )
     {
       if ( bladeburnerState != eBladeburnerStates.CHAOS_CONTROL )
       {
-        const travelSucessful = ns.bladeburner.switchCity( mostChaoticCity )
+        const travelSucessful = ns.bladeburner.switchCity( bestCity )
 
         if ( travelSucessful )
-          currentCity = mostChaoticCity
+          currentCity = bestCity
       }
 
       //Travel to high chaos city to control chaos.
@@ -224,10 +232,10 @@ export async function main(ns)
     else
     {
       bladeburnerState = eBladeburnerStates.POP_CONTROL
-      const travelSucessful = ns.bladeburner.switchCity( mostPopulatedCity )
+      const travelSucessful = ns.bladeburner.switchCity( bestCity )
 
       if ( travelSucessful )
-        currentCity = mostPopulatedCity
+        currentCity = bestCity
     }
     
     if ( bladeburnerState == eBladeburnerStates.CHAOS_CONTROL)
@@ -339,14 +347,23 @@ export async function main(ns)
           {
             ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK )
             await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK ) / bonusTimeMult )
-            intelCycleCount++
           }
           else
           {
             ns.bladeburner.startAction(  eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.INTEL )
             await ns.sleep( ns.bladeburner.getActionTime(  eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.INTEL ) / bonusTimeMult )
-            intelCycleCount++
           }
+
+          const postIntelPopEst = ns.bladeburner.getCityEstimatedPopulation( currentCity )
+          if ( postIntelPopEst == lastPopByCity[ currentCity ] )
+            intelCycleCount = BLADEBURNER_INTEL_CYCLES_PER_CITY
+          else
+            intelCycleCount++
+
+          lastPopByCity[ currentCity ] = postIntelPopEst
+          const jsonStringWrite = JSON.stringify( lastPopByCity )
+          await ns.write( BLADEBURNER_LAST_CITY_POP_FILENAME, jsonStringWrite, "w" )
+
         }
     }
 
