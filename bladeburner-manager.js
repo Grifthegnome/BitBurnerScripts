@@ -120,6 +120,7 @@ export async function main(ns)
     let player  = ns.getPlayer()
 
     let bestCityChaos = -1
+    let bestCityPop = -1
     let bestCity = currentCity
 
     let highestChaos = -1
@@ -170,6 +171,7 @@ export async function main(ns)
         largestPopulation = cityEstPop
 
         bestCity = cityName
+        bestCityPop = cityEstPop
         bestCityChaos = cityChaos
       }
         
@@ -211,7 +213,6 @@ export async function main(ns)
         intelGatherStartingCity = currentCity
       }
         
-
       bladeburnerState = eBladeburnerStates.GATHER_INTEL
     }
     //CONTROL CHAOS (WE HEAL FIRST BECAUSE CHAOS NATURALLY DECREASES)
@@ -229,13 +230,18 @@ export async function main(ns)
       bladeburnerState = eBladeburnerStates.CHAOS_CONTROL
     }
     //KILL SYNTHETICS
-    else
+    else if ( bestCityPop >= BLADEBURNER_ACCEPTABLE_POP_LEVEL )
     {
       bladeburnerState = eBladeburnerStates.POP_CONTROL
       const travelSucessful = ns.bladeburner.switchCity( bestCity )
 
       if ( travelSucessful )
         currentCity = bestCity
+    }
+    else
+    {
+      //If things are under control manage org.
+      bladeburnerState = eBladeburnerStates.DOWNTIME 
     }
     
     if ( bladeburnerState == eBladeburnerStates.CHAOS_CONTROL)
