@@ -1,12 +1,17 @@
 import { KillDuplicateScriptsOnHost } from "utility.js"
 import { AddCommasToNumber } from "utility.js"
 
+const BLADEBURNER_LAST_INTEL_TIME_FILENAME = "bladeburner_intel_time.txt"
+
 const BLADEBURNER_MAX_ALLOWED_CHAOS = 1.0
 const BLADEBURNER_ACCEPTABLE_CHAOS_LEVEL = 0.5
 const BLADEBURNER_ACCEPTABLE_POP_LEVEL = 1000000000
 
+const BLADEBURNER_PAY_FOR_HOSPITAL_THRESHHOLD = 50000000
+
 //Every 15 minutes update intel.
 const BLADEBURNER_INTEL_INTERVAL = (1000 * 60) * 15
+const BLADEBURNER_INTEL_CYCLES_PER_CITY = 5
 
 /** @param {NS} ns */
 export async function main(ns) 
@@ -14,7 +19,16 @@ export async function main(ns)
 
   const cityNames = [ "Aevum", "Chongqing", "Sector-12", "New Tokyo", "Ishima", "Volhaven" ]
 
-  const eBladeburnerStates = Object.freeze( {
+  const lowPopByCity = Object.freeze({
+    "Aevum": 1695198732,
+    "Chongqing": 1410991011,
+    "Sector-12": 0, //NEED ENTRIES
+    "New Tokyo": 736160916,
+    "Ishima": 1344484272,
+    "Volhaven": 1939339264,
+  })
+
+  const eBladeburnerStates = Object.freeze({
     DOWNTIME: 0,
     CHAOS_CONTROL: 1,
     POP_CONTROL:2,
@@ -69,7 +83,14 @@ export async function main(ns)
   let bladeburnerState = eBladeburnerStates.GATHER_INTEL
 
   let lastIntelGatherTime = -1
+  let intelCycleCount = 0
   const systemDate = new Date()
+
+  if ( ns.fileExists( BLADEBURNER_LAST_INTEL_TIME_FILENAME ) )
+  {
+    const jsonStringRead = ns.read( BLADEBURNER_LAST_INTEL_TIME_FILENAME )
+    lastIntelGatherTime = JSON.parse( jsonStringRead )
+  }
 
   while ( true )
   {
@@ -99,7 +120,11 @@ export async function main(ns)
     let largestPopulation = -1
     let mostPopulatedCity = currentCity
 
+    let bonusTimeMult = 1.0
 
+    const bonusTime = ns.bladeburner.getBonusTime()
+    if ( bonusTime > 1000 )
+      bonusTimeMult = 5.0
 
     ns.tprint( "=================================================" )
     ns.tprint( "BLADEBURNER REPORT:" )
@@ -118,8 +143,12 @@ export async function main(ns)
 
       if ( cityChaos > highestChaos )
       {
-        mostChaoticCity = cityName
-        highestChaos = cityChaos
+        //if a city already has low synth pop. we don't need to control chaos.
+        if ( lowPopByCity[cityName] < cityEstPop )
+        {
+          mostChaoticCity = cityName
+          highestChaos = cityChaos
+        } 
       }
 
       if ( cityChaos < lowestChaos || lowestChaos < 0 )
@@ -163,6 +192,18 @@ export async function main(ns)
     {
       bladeburnerState = eBladeburnerStates.DOWNTIME
     }
+    //GATHER INTEL AT REGULAR INTERVALS
+    else if ( systemDate.getTime() - lastIntelGatherTime >= BLADEBURNER_INTEL_INTERVAL || lastIntelGatherTime < 0 )
+    {
+      if ( bladeburnerState != eBladeburnerStates.GATHER_INTEL )
+      {
+        intelCycleCount = 0
+        intelGatherStartingCity = currentCity
+      }
+        
+
+      bladeburnerState = eBladeburnerStates.GATHER_INTEL
+    }
     //CONTROL CHAOS (WE HEAL FIRST BECAUSE CHAOS NATURALLY DECREASES)
     else if ( highestChaos >= BLADEBURNER_MAX_ALLOWED_CHAOS || bladeburnerState == eBladeburnerStates.CHAOS_CONTROL )
     {
@@ -177,14 +218,6 @@ export async function main(ns)
       //Travel to high chaos city to control chaos.
       bladeburnerState = eBladeburnerStates.CHAOS_CONTROL
     }
-    //GATHER INTEL AT REGULAR INTERVALS
-    else if ( systemDate.getTime() - lastIntelGatherTime <= BLADEBURNER_INTEL_INTERVAL || lastIntelGatherTime < 0 )
-    {
-      if ( bladeburnerState != eBladeburnerStates.GATHER_INTEL )
-        intelGatherStartingCity = currentCity
-
-      bladeburnerState = eBladeburnerStates.GATHER_INTEL
-    }
     //KILL SYNTHETICS
     else
     {
@@ -197,12 +230,16 @@ export async function main(ns)
     
     if ( bladeburnerState == eBladeburnerStates.CHAOS_CONTROL)
     {
+      if ( ns.bladeburner.getCityChaos( currentCity ) <= BLADEBURNER_ACCEPTABLE_CHAOS_LEVEL )
+      {
+        bladeburnerState = eBladeburnerStates.DOWNTIME
+      }   
+      else
+      {
         //If city is too chaotic, try to reduce chaos level.
         ns.bladeburner.startAction( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.DIPLOMACY )
-        await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.DIPLOMACY ) )
-
-        if ( ns.bladeburner.getCityChaos( currentCity ) <= BLADEBURNER_ACCEPTABLE_CHAOS_LEVEL )
-          bladeburnerState = eBladeburnerStates.DOWNTIME  
+        await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.DIPLOMACY ) / bonusTimeMult )
+      } 
     }
     else if ( bladeburnerState == eBladeburnerStates.POP_CONTROL )
     {
@@ -214,18 +251,18 @@ export async function main(ns)
       ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) > 0 )
       {
         ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL )
-        await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) )
+        await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) / bonusTimeMult )
       }
       else if ( ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE  ) > 0 )
       {
         ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE )
-        await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE ) )
+        await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE ) / bonusTimeMult )
       }
       else
       {
         //If we are totally out of contracts, we need to Incite Violence. This will increase chaos across all cities.
         ns.bladeburner.startAction(  eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.VIOLENCE )
-        await ns.sleep( ns.bladeburner.getActionTime(  eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.VIOLENCE ) )
+        await ns.sleep( ns.bladeburner.getActionTime(  eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.VIOLENCE ) / bonusTimeMult )
       }
 
       if ( ns.bladeburner.getCityEstimatedPopulation( currentCity ) <= BLADEBURNER_ACCEPTABLE_POP_LEVEL )
@@ -240,8 +277,15 @@ export async function main(ns)
       }
       else
       {
-        ns.bladeburner.startAction( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.HEAL )
-        await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.HEAL ) )
+        if ( !(ns.singularity) && ns.getServerMoneyAvailable( "home" ) >= BLADEBURNER_PAY_FOR_HOSPITAL_THRESHHOLD )
+        {
+          ns.singularity.hospitalize()
+        }
+        else
+        {
+          ns.bladeburner.startAction( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.HEAL )
+          await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.HEAL ) / bonusTimeMult )
+        }        
       }
     }
     else if ( bladeburnerState == eBladeburnerStates.DOWNTIME )
@@ -253,34 +297,54 @@ export async function main(ns)
       else if ( ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.RECRUIT )[0] > 0.5 )
       {
         ns.bladeburner.startAction( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.RECRUIT )
-        await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.RECRUIT ) )
+        await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.RECRUIT ) / bonusTimeMult )
       }
       else
       {
         ns.bladeburner.startAction( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.TRAIN )
-        await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.TRAIN ) )
+        await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.TRAIN ) / bonusTimeMult )
       }
     }
     else if ( bladeburnerState == eBladeburnerStates.GATHER_INTEL )
     {   
-        //We cycle through the cities to scout evenly for intel.
-        const travelSucessful = ns.bladeburner.switchCity( nextCityToScout )
-
-        if ( travelSucessful )
-          currentCity = nextCityToScout
-
-        if ( currentCity == intelGatherStartingCity )
-          lastIntelGatherTime = systemDate.getTime()
-
-        if ( ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK ) > 0 )
+        if ( BLADEBURNER_INTEL_CYCLES_PER_CITY <= intelCycleCount )
         {
-          ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK )
-          await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK ) )
+          //We cycle through the cities to scout evenly for intel.
+          const travelSucessful = ns.bladeburner.switchCity( nextCityToScout )
+
+          if ( travelSucessful )
+          {
+            currentCity = nextCityToScout
+            intelCycleCount = 0
+          }
+
+          if ( currentCity == intelGatherStartingCity )
+          {
+            lastIntelGatherTime = systemDate.getTime()
+
+            const jsonStringWrite = JSON.stringify( lastIntelGatherTime )
+            await ns.write( BLADEBURNER_LAST_INTEL_TIME_FILENAME, jsonStringWrite, "w" )
+          }
+            
+
         }
         else
         {
-          ns.bladeburner.startAction(  eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.INTEL )
-          await ns.sleep( ns.bladeburner.getActionTime(  eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.INTEL ) )
+          const trackChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK )
+
+          if ( trackChance[0] >= 0.5 && 
+          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK ) > 0 )
+          {
+            ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK )
+            await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK ) / bonusTimeMult )
+            intelCycleCount++
+          }
+          else
+          {
+            ns.bladeburner.startAction(  eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.INTEL )
+            await ns.sleep( ns.bladeburner.getActionTime(  eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.INTEL ) / bonusTimeMult )
+            intelCycleCount++
+          }
         }
     }
 

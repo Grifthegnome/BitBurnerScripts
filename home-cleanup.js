@@ -17,6 +17,10 @@ export async function main(ns)
   if ( ns.fileExists( "servers_compromised.txt", "home" ) )
     ns.rm( "servers_compromised.txt", "home" )
 
+  //BLADE BURNER FILES
+  if ( ns.fileExists( "bladeburner_intel_time.txt", "home" ) )
+    ns.rm( "bladeburner_intel_time.txt", "home" )
+
   //This cleans up data for hacknet-manager.js
   if ( ns.fileExists( "hacknet_cores_income_data.txt", "home" ) )
     ns.rm( "hacknet_cores_income_data.txt", "home" )
