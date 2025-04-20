@@ -9,6 +9,8 @@ const BLADEBURNER_ACCEPTABLE_POP_LEVEL = 1000000000
 
 const BLADEBURNER_PAY_FOR_HOSPITAL_THRESHHOLD = 50000000
 
+const BLADEBURNER_RECRUIT_SUCCESS_THRESHOLD = 0.3666666
+
 //Every 15 minutes update intel.
 const BLADEBURNER_INTEL_INTERVAL = (1000 * 60) * 15
 const BLADEBURNER_INTEL_CYCLES_PER_CITY = 5
@@ -277,7 +279,7 @@ export async function main(ns)
       }
       else
       {
-        if ( !(ns.singularity) && ns.getServerMoneyAvailable( "home" ) >= BLADEBURNER_PAY_FOR_HOSPITAL_THRESHHOLD )
+        if ( ns.singularity && ns.getServerMoneyAvailable( "home" ) >= BLADEBURNER_PAY_FOR_HOSPITAL_THRESHHOLD )
         {
           ns.singularity.hospitalize()
         }
@@ -294,7 +296,7 @@ export async function main(ns)
       {
         bladeburnerState = eBladeburnerStates.GATHER_INTEL
       }
-      else if ( ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.RECRUIT )[0] > 0.5 )
+      else if ( ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.RECRUIT )[0] > BLADEBURNER_RECRUIT_SUCCESS_THRESHOLD )
       {
         ns.bladeburner.startAction( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.RECRUIT )
         await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.RECRUIT ) / bonusTimeMult )
