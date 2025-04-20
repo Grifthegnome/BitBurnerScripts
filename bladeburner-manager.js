@@ -174,7 +174,7 @@ export async function main(ns)
         currentCity = mostChaoticCity
     }
     //GATHER INTEL AT REGULAR INTERVALS
-    else if ( systemDate.getTime() - lastIntelGatherTime >= BLADEBURNER_INTEL_INTERVAL || lastIntelGatherTime < 0 )
+    else if ( systemDate.getTime() - lastIntelGatherTime <= BLADEBURNER_INTEL_INTERVAL || lastIntelGatherTime < 0 )
     {
       if ( bladeburnerState != eBladeburnerStates.GATHER_INTEL )
         intelGatherStartingCity = currentCity
