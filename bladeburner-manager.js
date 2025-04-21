@@ -414,9 +414,9 @@ export async function main(ns)
           else
             intelCycleCount++
 
-          if ( postIntelPopEst > lastPopByCity[ currentCity ] )
+          if ( postIntelPopEst < lastPopByCity[ currentCity ] )
             popTrendByCity[ currentCity ] = "[ESTIMATION HIGH]"
-          else if ( postIntelPopEst < lastPopByCity[ currentCity ] )
+          else if ( postIntelPopEst > lastPopByCity[ currentCity ] )
             popTrendByCity[ currentCity ] = "[ESTIMATION LOW]"
           else
             popTrendByCity[ currentCity ] = "[ESTIMATION ACCURATE]"
