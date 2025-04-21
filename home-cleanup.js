@@ -24,6 +24,9 @@ export async function main(ns)
   if ( ns.fileExists( "bladeburner_last_city_pop.txt", "home" ) )
     ns.rm( "bladeburner_last_city_pop.txt", "home" )
 
+  if ( ns.fileExists( "bladeburner_report.txt", "home" ) )
+    ns.rm( "bladeburner_report.txt", "home" )
+
   //This cleans up data for hacknet-manager.js
   if ( ns.fileExists( "hacknet_cores_income_data.txt", "home" ) )
     ns.rm( "hacknet_cores_income_data.txt", "home" )

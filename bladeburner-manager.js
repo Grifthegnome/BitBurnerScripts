@@ -3,6 +3,7 @@ import { AddCommasToNumber } from "utility.js"
 
 const BLADEBURNER_LAST_INTEL_TIME_FILENAME = "bladeburner_intel_time.txt"
 const BLADEBURNER_LAST_CITY_POP_FILENAME = "bladeburner_last_city_pop.txt"
+const BLADEBURNER_REPORT_FILENAME = "bladeburner_report.txt"
 
 const BLADEBURNER_MAX_ALLOWED_CHAOS = 1.0
 const BLADEBURNER_ACCEPTABLE_CHAOS_LEVEL = 0.5
@@ -137,15 +138,15 @@ export async function main(ns)
     const bonusTime = ns.bladeburner.getBonusTime()
     if ( bonusTime > 1000 )
       bonusTimeMult = 5.0
+    
+    await ns.write( BLADEBURNER_REPORT_FILENAME, "=================================================\n", "w" )
+    await ns.write( BLADEBURNER_REPORT_FILENAME, "BLADEBURNER REPORT: \n" , "a" )
+    await ns.write( BLADEBURNER_REPORT_FILENAME, "=================================================\n" , "a" )
 
-    ns.tprint( "=================================================" )
-    ns.tprint( "BLADEBURNER REPORT:" )
-    ns.tprint( "=================================================" )
-
-    ns.tprint( "Player Health: " + player.hp.current + " / " + player.hp.max )
-    ns.tprint( "Player Stamina: " + stamina[0] + " / " + stamina[1] )
-    ns.tprint( "\n" )
-
+    await ns.write( BLADEBURNER_REPORT_FILENAME, "Player Health: " + player.hp.current + " / " + player.hp.max + "\n", "a" )
+    await ns.write( BLADEBURNER_REPORT_FILENAME, "Player Stamina: " + stamina[0] + " / " + stamina[1] + "\n", "a" )
+    await ns.write( BLADEBURNER_REPORT_FILENAME, "\n", "a" )
+    
     for ( let i = 0; i < cityNames.length; i++ )
     {
       const cityName = cityNames[i]
@@ -183,16 +184,14 @@ export async function main(ns)
           nextCityToScout = cityNames[i + 1]
       }
 
-      ns.tprint( cityName )
-      ns.tprint( "Chaos Level: " + cityChaos )
-      ns.tprint( "Syth. Communities: " + cityCommunities )
-      ns.tprint( "Est. Population: " + AddCommasToNumber( cityEstPop ) )
-      ns.tprint( "\n" )
-
-
+      await ns.write( BLADEBURNER_REPORT_FILENAME, cityName + "\n", "a" )
+      await ns.write( BLADEBURNER_REPORT_FILENAME, "Chaos Level: " + cityChaos + "\n", "a" )
+      await ns.write( BLADEBURNER_REPORT_FILENAME, "Syth. Communities: " + cityCommunities + "\n", "a" )
+      await ns.write( BLADEBURNER_REPORT_FILENAME, "Est. Population: " + AddCommasToNumber( cityEstPop ) + "\n", "a" )
+      await ns.write( BLADEBURNER_REPORT_FILENAME, "\n", "a" )
     }
 
-    ns.tprint( "=================================================" )
+    await ns.write( BLADEBURNER_REPORT_FILENAME, "=================================================" + "\n", "a" )
 
     //HEAL TO FULL HEALTH IF WE ARE BELOW HALF HEALTH
     if ( player.hp.current <= player.hp.max / 2 || bladeburnerState == eBladeburnerStates.HEAL )
