@@ -11,4 +11,5 @@ export async function main(ns)
   ns.exec( "hacknet-manager.js", "home" )
   ns.exec( "darkweb-manager.js", "home" )
   ns.exec( "gang-manager.js", "home" )
+  ns.exec( "bladeburner-manager.js", "home" )
 }
