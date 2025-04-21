@@ -17,6 +17,8 @@ const BLADEBURNER_RECRUIT_SUCCESS_THRESHOLD = 0.3666666
 const BLADEBURNER_INTEL_INTERVAL = (1000 * 60) * 15
 const BLADEBURNER_INTEL_CYCLES_PER_CITY = 5
 
+const BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE = 0.9
+
 /** @param {NS} ns */
 export async function main(ns) 
 {
@@ -51,6 +53,15 @@ export async function main(ns)
     TRACK: "Tracking",
     CAPTURE: "Bounty Hunter",
     KILL: "Retirement", 
+  })
+
+  const eBladeburnerOperationActions = Object.freeze({
+    INVESTIGATE: "Investigation",
+    UNDERCOVER: "Undercover Operation",
+    STING: "Sting Operation",                       //PERCENT REDUCTION
+    RAID: "Raid",                                   //PERCENT REDUCTION
+    STEALTH_KILL: "Stealth Retirement Operation",   //PERCENT REDUCTION
+    ASSASSINATION: "Assassination",                 //PERCENT REDUCTION
   })
 
   //Only allow one gang manager to run at a time.
@@ -346,19 +357,28 @@ export async function main(ns)
             const jsonStringWrite = JSON.stringify( lastIntelGatherTime )
             await ns.write( BLADEBURNER_LAST_INTEL_TIME_FILENAME, jsonStringWrite, "w" )
           }
-            
-
         }
         else
         {
           const trackChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK )
 
-          if ( trackChance[0] >= 0.5 && 
+          ns.bladeburner.setTeamSize( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE, ns.bladeburner.getTeamSize() )
+          const investigationChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE )
+
+          //If we can lauch an investigation opperation, do so.
+          if ( investigationChance[0] >= BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE && investigationChance[1] == 1.0 )
+          {
+            ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE )
+            await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE ) / bonusTimeMult )
+          }
+          //Otherwise do a tact contract.
+          else if ( trackChance[0] >= 0.5 && 
           ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK ) > 0 )
           {
             ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK )
             await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK ) / bonusTimeMult )
           }
+          //Otherwise, gather field inteligence.
           else
           {
             ns.bladeburner.startAction(  eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.INTEL )
