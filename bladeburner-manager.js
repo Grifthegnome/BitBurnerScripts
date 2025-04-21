@@ -379,6 +379,9 @@ export async function main(ns)
         }
         else
         {
+          //Some intel actions impact world wide intel, but most don't.
+          let worldWideIntel = false
+
           //Only run contracts and opperations on first intel cycle.
           if ( intelCycleCount == 0 )
           {
@@ -392,6 +395,7 @@ export async function main(ns)
             {
               ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE )
               await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE ) / bonusTimeMult )
+              worldWideIntel = true
             }
             //Otherwise do a tact contract.
             else if ( trackChance[0] >= 0.5 && 
@@ -408,26 +412,37 @@ export async function main(ns)
             await ns.sleep( ns.bladeburner.getActionTime(  eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.INTEL ) / bonusTimeMult )
           }
 
-          const postIntelPopEst = ns.bladeburner.getCityEstimatedPopulation( currentCity )
-          if ( postIntelPopEst == lastPopByCity[ currentCity ] )
-            intelCycleCount = BLADEBURNER_INTEL_CYCLES_PER_CITY
-          else
-            intelCycleCount++
+          for ( let cityIndex = 0; cityIndex < cityNames.length; cityIndex++ )
+          {
+            const cityName = cityNames[cityIndex]
+            const postIntelPopEst = ns.bladeburner.getCityEstimatedPopulation( cityName )
 
-          if ( postIntelPopEst < lastPopByCity[ currentCity ] )
-            popTrendByCity[ currentCity ] = "[ESTIMATION HIGH]"
-          else if ( postIntelPopEst > lastPopByCity[ currentCity ] )
-            popTrendByCity[ currentCity ] = "[ESTIMATION LOW]"
-          else
-            popTrendByCity[ currentCity ] = "[ESTIMATION ACCURATE]"
+            if ( cityName == currentCity )
+            {
+              if ( postIntelPopEst == lastPopByCity[ cityName ] )
+                intelCycleCount = BLADEBURNER_INTEL_CYCLES_PER_CITY
+              else
+                intelCycleCount++
+            }
+
+            if ( worldWideIntel || cityName == currentCity )
+            {
+              if ( postIntelPopEst < lastPopByCity[ cityName ] )
+                popTrendByCity[ cityName ] = "[ESTIMATION HIGH]"
+              else if ( postIntelPopEst > lastPopByCity[ cityName ] )
+                popTrendByCity[ cityName ] = "[ESTIMATION LOW]"
+              else
+                popTrendByCity[ cityName ] = "[ESTIMATION ACCURATE]"
+
+              lastPopByCity[ cityName ] = postIntelPopEst
+            }
+          }
 
           const jsonStringWritePopTrend = JSON.stringify( popTrendByCity )
           await ns.write( BLADEBURNER_CITY_POP_TREND_FILENAME, jsonStringWritePopTrend, "w" )
 
-          lastPopByCity[ currentCity ] = postIntelPopEst
           const jsonStringWrite = JSON.stringify( lastPopByCity )
           await ns.write( BLADEBURNER_LAST_CITY_POP_FILENAME, jsonStringWrite, "w" )
-
         }
     }
 
