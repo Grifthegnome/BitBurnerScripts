@@ -3,6 +3,7 @@ import { AddCommasToNumber } from "utility.js"
 
 const BLADEBURNER_LAST_INTEL_TIME_FILENAME = "bladeburner_intel_time.txt"
 const BLADEBURNER_LAST_CITY_POP_FILENAME = "bladeburner_last_city_pop.txt"
+const BLADEBURNER_CITY_POP_TREND_FILENAME = "bladeburner_city_pop_trend.txt"
 const BLADEBURNER_REPORT_FILENAME = "bladeburner_report.txt"
 
 const BLADEBURNER_MAX_ALLOWED_CHAOS = 1.0
@@ -106,10 +107,26 @@ export async function main(ns)
     "Ishima": 0,
     "Volhaven": 0,
   }
+
   if ( ns.fileExists( BLADEBURNER_LAST_CITY_POP_FILENAME ) )
   {
     const jsonStringRead = ns.read( BLADEBURNER_LAST_CITY_POP_FILENAME )
     lastPopByCity = JSON.parse( jsonStringRead )
+  }
+
+  let popTrendByCity = {
+    "Aevum": "[ACCURATE]",
+    "Chongqing": "[ACCURATE]",
+    "Sector-12": "[ACCURATE]",
+    "New Tokyo": "[ACCURATE]",
+    "Ishima": "[ACCURATE]",
+    "Volhaven": "[ACCURATE]",
+  }
+
+  if ( ns.fileExists( BLADEBURNER_CITY_POP_TREND_FILENAME ) )
+  {
+    const jsonStringRead = ns.read( BLADEBURNER_CITY_POP_TREND_FILENAME )
+    popTrendByCity = JSON.parse( jsonStringRead )
   }
 
   while ( true )
@@ -165,6 +182,8 @@ export async function main(ns)
       const cityCommunities = ns.bladeburner.getCityCommunities(cityName)
       const cityEstPop = ns.bladeburner.getCityEstimatedPopulation(cityName)
 
+      const lastCityEstPop = lastPopByCity[ cityName ]
+
       if ( cityChaos > highestChaos )
       {
         mostChaoticCity = cityName
@@ -198,7 +217,7 @@ export async function main(ns)
       await ns.write( BLADEBURNER_REPORT_FILENAME, cityName + "\n", "a" )
       await ns.write( BLADEBURNER_REPORT_FILENAME, "Chaos Level: " + cityChaos + "\n", "a" )
       await ns.write( BLADEBURNER_REPORT_FILENAME, "Syth. Communities: " + cityCommunities + "\n", "a" )
-      await ns.write( BLADEBURNER_REPORT_FILENAME, "Est. Population: " + AddCommasToNumber( cityEstPop ) + "\n", "a" )
+      await ns.write( BLADEBURNER_REPORT_FILENAME, "Est. Population: " + AddCommasToNumber( cityEstPop ) + " " + popTrendByCity[ cityName ] + "\n", "a" )
       await ns.write( BLADEBURNER_REPORT_FILENAME, "\n", "a" )
     }
 
@@ -360,23 +379,27 @@ export async function main(ns)
         }
         else
         {
-          const trackChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK )
-
-          ns.bladeburner.setTeamSize( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE, ns.bladeburner.getTeamSize() )
-          const investigationChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE )
-
-          //If we can lauch an investigation opperation, do so.
-          if ( investigationChance[0] >= BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE && investigationChance[1] == 1.0 )
+          //Only run contracts and opperations on first intel cycle.
+          if ( intelCycleCount == 0 )
           {
-            ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE )
-            await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE ) / bonusTimeMult )
-          }
-          //Otherwise do a tact contract.
-          else if ( trackChance[0] >= 0.5 && 
-          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK ) > 0 )
-          {
-            ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK )
-            await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK ) / bonusTimeMult )
+            const trackChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK )
+
+            ns.bladeburner.setTeamSize( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE, ns.bladeburner.getTeamSize() )
+            const investigationChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE )
+
+            //If we can lauch an investigation opperation, do so.
+            if ( investigationChance[0] >= BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE && investigationChance[1] == 1.0 )
+            {
+              ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE )
+              await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE ) / bonusTimeMult )
+            }
+            //Otherwise do a tact contract.
+            else if ( trackChance[0] >= 0.5 && 
+            ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK ) > 0 )
+            {
+              ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK )
+              await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK ) / bonusTimeMult )
+            }
           }
           //Otherwise, gather field inteligence.
           else
@@ -390,6 +413,16 @@ export async function main(ns)
             intelCycleCount = BLADEBURNER_INTEL_CYCLES_PER_CITY
           else
             intelCycleCount++
+
+          if ( postIntelPopEst > lastPopByCity[ currentCity ] )
+            popTrendByCity[ currentCity ] = "[ESTIMATION HIGH]"
+          else if ( postIntelPopEst < lastPopByCity[ currentCity ] )
+            popTrendByCity[ currentCity ] = "[ESTIMATION LOW]"
+          else
+            popTrendByCity[ currentCity ] = "[ESTIMATION ACCURATE]"
+
+          const jsonStringWritePopTrend = JSON.stringify( popTrendByCity )
+          await ns.write( BLADEBURNER_CITY_POP_TREND_FILENAME, jsonStringWritePopTrend, "w" )
 
           lastPopByCity[ currentCity ] = postIntelPopEst
           const jsonStringWrite = JSON.stringify( lastPopByCity )
