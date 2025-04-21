@@ -2,14 +2,15 @@ import {AddCommasToNumber} from "utility.js"
 
 const FACTION_NAMES_FILENAME = "faction_names.txt"
 const FACTION_RESTRICTED_AUGMENTS_FILENAME = "faction_restricted_augments.txt"
+const FACTION_REPORT_FILENAME = "faction_report.txt"
 
-const FACTION_MAX_INSERT_SPACES = 55
+const FACTION_MAX_INSERT_SPACES = 57
 
-const FACTION_REQUIREMENTS_HEADER = "REQUIREMENTS<========================================================>REQUIREMENTS"
-const FACTION_UNAQUIRED_AUGMENT_HEADER = "REMAINING AUGMENTATIONS<============================================>REMAINING AUGMENTATIONS"
-const FACTION_UNAQUIRED_AUGMENT_HEADER_DOUBLE_WIDE = "REMAINING AUGMENTATIONS<===================================================================================================================>REMAINING AUGMENTATIONS"
-const FACTION_OWNED_AUGMENT_HEADER = "OWNED AUGMENTATIONS<================================================>OWNED AUGMENTATIONS"
-const FACTION_OWNED_AUGMENT_HEADER_DOUBLE_WIDE = "OWNED AUGMENTATIONS<=======================================================================================================================>OWNED AUGMENTATIONS"
+const FACTION_REQUIREMENTS_HEADER = "REQUIREMENTS<==========================================================>REQUIREMENTS"
+const FACTION_UNAQUIRED_AUGMENT_HEADER = "REMAINING AUGMENTATIONS<==============================================>REMAINING AUGMENTATIONS"
+const FACTION_UNAQUIRED_AUGMENT_HEADER_DOUBLE_WIDE = "REMAINING AUGMENTATIONS<=======================================================================================================================>REMAINING AUGMENTATIONS"
+const FACTION_OWNED_AUGMENT_HEADER = "OWNED AUGMENTATIONS<==================================================>OWNED AUGMENTATIONS"
+const FACTION_OWNED_AUGMENT_HEADER_DOUBLE_WIDE = "OWNED AUGMENTATIONS<===========================================================================================================================>OWNED AUGMENTATIONS"
 
 const FACTION_REQUIREMENT_INDENT_STRING = "   |->"
 
@@ -103,13 +104,13 @@ export async function main(ns)
   if ( factionStartingCount != knownFactions.length )
   {
     const jsonString = JSON.stringify( knownFactions )
-    await ns.write( FACTION_NAMES_FILENAME, jsonString, "w" )
+    await ns.write( FACTION_REPORT_FILENAME, FACTION_NAMES_FILENAME, jsonString, "w" )
   }
 
   if ( factionRestrictedAugmentsStartingCount != factionRestrictedAugments.length )
   {
     const jsonString = JSON.stringify( factionRestrictedAugments )
-    await ns.write( FACTION_RESTRICTED_AUGMENTS_FILENAME, jsonString, "w" )
+    await ns.write( FACTION_REPORT_FILENAME, FACTION_RESTRICTED_AUGMENTS_FILENAME, jsonString, "w" )
   }
 
   if ( ns.args.length )
@@ -204,6 +205,11 @@ export async function main(ns)
   ns.tprint( "//                                                               FACTION REPORT                                                                //" )
   ns.tprint( "/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////" )
 
+  await ns.write( FACTION_REPORT_FILENAME, "\n", "w" )
+  await ns.write( FACTION_REPORT_FILENAME, "/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////\n" , "a" )
+  await ns.write( FACTION_REPORT_FILENAME, "//                                                               FACTION REPORT                                                                //\n" , "a" )
+  await ns.write( FACTION_REPORT_FILENAME, "/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////\n" , "a" )
+
   for ( let factionIndex = 0; factionIndex < knownFactions.length; factionIndex++ )
   {
     const factionName         = knownFactions[ factionIndex ]
@@ -224,29 +230,48 @@ export async function main(ns)
       ns.tprint( "=======================================================================================================" )
       ns.tprint( factionName + " [COMPLETE]" )
       ns.tprint( "=======================================================================================================" )
+
+      await ns.write( FACTION_REPORT_FILENAME, "=======================================================================================================\n" , "a" )
+      await ns.write( FACTION_REPORT_FILENAME, factionName + " [COMPLETE]\n" , "a" )
+      await ns.write( FACTION_REPORT_FILENAME, "=======================================================================================================\n" , "a" )
+
     }
     else if ( isMember )
     {
       ns.tprint( "=======================================================================================================" )
       ns.tprint( factionName + " [JOINED]" + " [" + Math.round(progressFrac * 100) + "% COMPLETE] " + "[REPUTATION " + AddCommasToNumber(clampedRep) + " of " + AddCommasToNumber(clampedMaxRep) + "]")
       ns.tprint( "=======================================================================================================" )
+    
+      await ns.write( FACTION_REPORT_FILENAME, "=======================================================================================================\n" , "a" )
+      await ns.write( FACTION_REPORT_FILENAME, factionName + " [JOINED]" + " [" + Math.round(progressFrac * 100) + "% COMPLETE] " + "[REPUTATION " + AddCommasToNumber(clampedRep) + " of " + AddCommasToNumber(clampedMaxRep) + "]\n" , "a" )
+      await ns.write( FACTION_REPORT_FILENAME, "=======================================================================================================\n" , "a" )
     }
     else if ( isInvited )
     {
       ns.tprint( "=======================================================================================================" )
       ns.tprint( factionName + " [INVITED]" + " [" + Math.round(progressFrac * 100) + "% COMPLETE] " + "[REPUTATION " + AddCommasToNumber(clampedRep) + " of " + AddCommasToNumber(clampedMaxRep) + "]")
       ns.tprint( "=======================================================================================================" )
+    
+      await ns.write( FACTION_REPORT_FILENAME, "=======================================================================================================\n" , "a" )
+      await ns.write( FACTION_REPORT_FILENAME, factionName + " [INVITED]" + " [" + Math.round(progressFrac * 100) + "% COMPLETE] " + "[REPUTATION " + AddCommasToNumber(clampedRep) + " of " + AddCommasToNumber(clampedMaxRep) + "]\n" , "a" )
+      await ns.write( FACTION_REPORT_FILENAME, "=======================================================================================================\n" , "a" )
     }
     else
     {
       ns.tprint( "=======================================================================================================" )
       ns.tprint( factionName + " [" + Math.round(progressFrac * 100) + "% COMPLETE] " + "[REPUTATION " + AddCommasToNumber(clampedRep) + " of " + AddCommasToNumber(clampedMaxRep) + "]")
       ns.tprint( "=======================================================================================================" )
+    
+      await ns.write( FACTION_REPORT_FILENAME, "=======================================================================================================\n" , "a" )
+      await ns.write( FACTION_REPORT_FILENAME, factionName + " [" + Math.round(progressFrac * 100) + "% COMPLETE] " + "[REPUTATION " + AddCommasToNumber(clampedRep) + " of " + AddCommasToNumber(clampedMaxRep) + "]\n" , "a" )
+      await ns.write( FACTION_REPORT_FILENAME, "=======================================================================================================\n" , "a" )
     }
 
     const playerRequirements = ns.singularity.getFactionInviteRequirements( factionName )
 
     ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_REQUIREMENTS_HEADER )
+    await ns.write( FACTION_REPORT_FILENAME, FACTION_TOP_LEVEL_INDENT_STRING + FACTION_REQUIREMENTS_HEADER + "\n" , "a" )
+
     PrintFactionPlayerRequirements( ns, playerRequirements, isMemberOrInvited )
 
     //ns.tprint( "  AUGMENTATIONS:" )
@@ -350,9 +375,16 @@ export async function main(ns)
             hasPrintedPurchasedSection = true
 
             if ( isPurchasedDoubleWide )
+            {
               ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_OWNED_AUGMENT_HEADER_DOUBLE_WIDE )
+              await ns.write( FACTION_REPORT_FILENAME, FACTION_TOP_LEVEL_INDENT_STRING + FACTION_OWNED_AUGMENT_HEADER_DOUBLE_WIDE + "\n" , "a" )
+            }
             else
+            {
               ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_OWNED_AUGMENT_HEADER )
+              await ns.write( FACTION_REPORT_FILENAME, FACTION_TOP_LEVEL_INDENT_STRING + FACTION_OWNED_AUGMENT_HEADER + "\n" , "a" )
+            }
+              
           }
         }
         else if ( currentLineString.length + nextLineString.length <= maxLineLength )
@@ -365,6 +397,8 @@ export async function main(ns)
         else
         {
           ns.tprint( currentLineString )
+          await ns.write( FACTION_REPORT_FILENAME, currentLineString + "\n" , "a" )
+
           entriesOnCurrentLine = nextLineString.length ? 1 : 0
           currentLineString = (FACTION_FIRST_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString)
           nextLineString = ""
@@ -380,11 +414,19 @@ export async function main(ns)
           {
 
             if ( isUnpurchasedDoubleWide )
+            {
               ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_UNAQUIRED_AUGMENT_HEADER_DOUBLE_WIDE )
+              await ns.write( FACTION_REPORT_FILENAME, FACTION_TOP_LEVEL_INDENT_STRING + FACTION_UNAQUIRED_AUGMENT_HEADER_DOUBLE_WIDE + "\n" , "a" )
+            }
             else
+            {
               ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_UNAQUIRED_AUGMENT_HEADER )
+              await ns.write( FACTION_REPORT_FILENAME, FACTION_TOP_LEVEL_INDENT_STRING + FACTION_UNAQUIRED_AUGMENT_HEADER + "\n" , "a" )
+            }
               
             ns.tprint( currentLineString )
+            await ns.write( FACTION_REPORT_FILENAME, currentLineString + "\n" , "a" )
+
             currentLineString = ""
           }
 
@@ -398,7 +440,11 @@ export async function main(ns)
         {
 
           if ( currentLineString != "" )
+          {
             ns.tprint( currentLineString )
+            await ns.write( FACTION_REPORT_FILENAME, currentLineString + "\n" , "a" )
+          }
+            
             
           entriesOnCurrentLine = nextLineString.length ? 1 : 0
           currentLineString = (FACTION_FIRST_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString)
@@ -413,9 +459,16 @@ export async function main(ns)
             hasPrintedPurchasedSection = true
 
             if ( isPurchasedDoubleWide )
+            {
               ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_OWNED_AUGMENT_HEADER_DOUBLE_WIDE )
+              await ns.write( FACTION_REPORT_FILENAME, FACTION_TOP_LEVEL_INDENT_STRING + FACTION_OWNED_AUGMENT_HEADER_DOUBLE_WIDE + "\n" , "a" )
+            }
             else
+            {
               ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_OWNED_AUGMENT_HEADER )
+              await ns.write( FACTION_REPORT_FILENAME, FACTION_TOP_LEVEL_INDENT_STRING + FACTION_OWNED_AUGMENT_HEADER + "\n" , "a" )
+            }
+              
           }
         }
         else if ( currentLineString.length + nextLineString.length <= maxLineLength )
@@ -428,6 +481,8 @@ export async function main(ns)
         else
         {
           ns.tprint( currentLineString )
+          await ns.write( FACTION_REPORT_FILENAME, currentLineString + "\n" , "a" )
+
           entriesOnCurrentLine = nextLineString.length ? 1 : 0
           currentLineString = (FACTION_FIRST_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString)
           nextLineString = ""
@@ -472,12 +527,20 @@ export async function main(ns)
             hasPrintedUnpurchasedSection = true
 
             if ( isUnpurchasedDoubleWide )
+            {
               ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_UNAQUIRED_AUGMENT_HEADER_DOUBLE_WIDE )
+              await ns.write( FACTION_REPORT_FILENAME, FACTION_TOP_LEVEL_INDENT_STRING + FACTION_UNAQUIRED_AUGMENT_HEADER_DOUBLE_WIDE + "\n" , "a" )
+            } 
             else
+            {
               ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_UNAQUIRED_AUGMENT_HEADER )
+              await ns.write( FACTION_REPORT_FILENAME, FACTION_TOP_LEVEL_INDENT_STRING + FACTION_UNAQUIRED_AUGMENT_HEADER + "\n" , "a" )
+            }  
           }
 
           ns.tprint( currentLineString )
+          await ns.write( FACTION_REPORT_FILENAME, currentLineString + "\n" , "a" )
+
           entriesOnCurrentLine = nextLineString.length ? 1 : 0
           currentLineString = (FACTION_FIRST_LINE_ENTRY_UNOWNED_AUGMENT_INDENT_STRING + nextLineString)
           nextLineString = ""
@@ -491,6 +554,8 @@ export async function main(ns)
       if ( currentLineString != "" )
       {
         ns.tprint( currentLineString )
+        await ns.write( FACTION_REPORT_FILENAME, currentLineString + "\n" , "a" )
+
         entriesOnCurrentLine = 0
       }
       
@@ -729,7 +794,7 @@ function PrintFactionPlayerRequirements( ns, requirements, isMemberOrInvited )
   }
 }
 
-function PrintRequirementWithCompletionState( ns, printString, completed )
+async function PrintRequirementWithCompletionState( ns, printString, completed )
 {
 
   const insertSpaces = FACTION_MAX_INSERT_SPACES - printString.length
@@ -745,10 +810,12 @@ function PrintRequirementWithCompletionState( ns, printString, completed )
   if ( completed )
   {
     ns.tprint( FACTION_REQUIREMENT_INDENT_STRING + printString + insertString + "[COMPLETED]" )
+    await ns.write( FACTION_REPORT_FILENAME, FACTION_REQUIREMENT_INDENT_STRING + printString + insertString + "[COMPLETED]\n" , "a" )
   }
   else
   {
     ns.tprint( FACTION_REQUIREMENT_INDENT_STRING + printString + insertString + "[INCOMPLETE]" )
+    await ns.write( FACTION_REPORT_FILENAME, FACTION_REQUIREMENT_INDENT_STRING + printString + insertString + "[INCOMPLETE]\n" , "a" )
   }
 }
 
