@@ -267,6 +267,9 @@ export async function main(ns)
       await ns.write( FACTION_REPORT_FILENAME, "=======================================================================================================\n" , "a" )
     }
 
+    if ( factionName == "Bladeburners" )
+      debugger
+
     const playerRequirements = ns.singularity.getFactionInviteRequirements( factionName )
 
     ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_REQUIREMENTS_HEADER )
@@ -783,6 +786,28 @@ function PrintFactionPlayerRequirements( ns, requirements, isMemberOrInvited )
           const values = Object.values( player.jobs )
           completed = isMemberOrInvited || values.includes( requirement[ "jobTitle" ] )
         }
+        else if ( key == "bladeburnerRank" )
+        {
+          if ( ns.bladeburner.inBladeburner() )
+          {
+            completed = ns.bladeburner.getRank() >= requirement[key]
+          }
+          else
+          {
+            completed = false
+          }
+        }
+        else if ( key == "bitNodeN" )
+        {
+          //We are skipping this, because if we can see a faction that requires a specific bitnode, we are in that bitnode.
+          continue
+          completed = ns.getResetInfo().currentNode == requirement[ key ]
+        }
+        else if ( key == "sourceFile" )
+        {
+          //We are skipping this, because if we can see a faction that requires a source file, we have the source file.
+          continue
+        }
 
         const printString = FormatString( key ) + ": " + requirement[ key ]
 
@@ -849,6 +874,12 @@ function FormatString( string )
   if ( string == "backdoorInstalled" )
     return "Server Backdoor"
 
+  if ( string == "bladeburnerRank" )
+    return "Bladeburner Rank"
+
+  if ( string == "bitNodeN" )
+    return "Bit Node Number"
+
   if ( string == "city" )
     return "City"
 
@@ -890,6 +921,9 @@ function FormatString( string )
 
   if ( string == "numPeopleKilled" )
     return "Homicides"
+
+  if ( string == "sourceFile" )
+    return "Has Source File"
 
   if ( string == "strength" )
     return "Strength"
