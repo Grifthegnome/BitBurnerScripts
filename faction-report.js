@@ -345,11 +345,19 @@ export async function main(ns)
           if ( currentLineString.length )
           {
             if ( isUnpurchasedDoubleWide )
+            {
               ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_UNAQUIRED_AUGMENT_HEADER_DOUBLE_WIDE )
+              await ns.write( FACTION_REPORT_FILENAME, FACTION_TOP_LEVEL_INDENT_STRING + FACTION_UNAQUIRED_AUGMENT_HEADER_DOUBLE_WIDE + "\n" , "a" )
+            }
             else
+            {
               ns.tprint( FACTION_TOP_LEVEL_INDENT_STRING + FACTION_UNAQUIRED_AUGMENT_HEADER )
-
+              await ns.write( FACTION_REPORT_FILENAME, FACTION_TOP_LEVEL_INDENT_STRING + FACTION_UNAQUIRED_AUGMENT_HEADER + "\n" , "a" )
+            }
+              
             ns.tprint( currentLineString )
+            await ns.write( FACTION_REPORT_FILENAME, currentLineString + "\n" , "a" )
+
             currentLineString = ""
           }
 
@@ -363,7 +371,11 @@ export async function main(ns)
         {
 
           if ( currentLineString != "" )
+          {
             ns.tprint( currentLineString )
+            await ns.write( FACTION_REPORT_FILENAME, currentLineString + "\n" , "a" )
+          }
+            
 
           entriesOnCurrentLine = nextLineString.length ? 1 : 0
           currentLineString = (FACTION_FIRST_LINE_ENTRY_OWNED_AUGMENT_INDENT_STRING + nextLineString)
