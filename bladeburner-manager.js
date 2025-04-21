@@ -374,9 +374,25 @@ export async function main(ns)
     }
     else if ( bladeburnerState == eBladeburnerStates.DOWNTIME )
     {
-      if ( stamina[0] == stamina[1] )
+      const skills = Object.keys( player.skills )
+
+      let underSkilled = false
+      for ( let skillIndex = 0; skillIndex < skills.length; skillIndex++ )
       {
-        bladeburnerState = eBladeburnerStates.GATHER_INTEL
+        if ( player.skills[ skills[skillIndex] ] < 100 )
+        {
+          if ( skills[skillIndex] == "hacking" )
+            continue
+
+          underSkilled = true
+          break
+        }
+      }
+
+      if ( underSkilled )
+      {
+        ns.bladeburner.startAction( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.TRAIN )
+        await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.TRAIN ) / bonusTimeMult )
       }
       else if ( ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.RECRUIT )[0] > BLADEBURNER_RECRUIT_SUCCESS_THRESHOLD )
       {
@@ -387,6 +403,11 @@ export async function main(ns)
       {
         ns.bladeburner.startAction( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.TRAIN )
         await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.TRAIN ) / bonusTimeMult )
+      }
+
+      if ( stamina[0] == stamina[1] )
+      {
+        bladeburnerState = eBladeburnerStates.GATHER_INTEL
       }
     }
     else if ( bladeburnerState == eBladeburnerStates.GATHER_INTEL )
