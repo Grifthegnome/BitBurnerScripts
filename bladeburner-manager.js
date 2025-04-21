@@ -201,8 +201,11 @@ export async function main(ns)
       {
         mostPopulatedCity = cityName
         largestPopulation = cityEstPop
+      }
 
-        bestCity = cityName
+      if ( cityEstPop > bestCityPop )
+      {
+        bestCity = cityName 
         bestCityPop = cityEstPop
         bestCityChaos = cityChaos
       }
@@ -229,11 +232,6 @@ export async function main(ns)
     {
       bladeburnerState = eBladeburnerStates.HEAL
     }
-    //DO RECURITMENT AND TRAINING WHILE WE RECOVER STAMINA.
-    else if ( stamina[0] < stamina[1] / 2 || bladeburnerState == eBladeburnerStates.DOWNTIME )
-    {
-      bladeburnerState = eBladeburnerStates.DOWNTIME
-    }
     //GATHER INTEL AT REGULAR INTERVALS
     else if ( systemDate.getTime() - lastIntelGatherTime >= BLADEBURNER_INTEL_INTERVAL || lastIntelGatherTime < 0 )
     {
@@ -244,6 +242,11 @@ export async function main(ns)
       }
         
       bladeburnerState = eBladeburnerStates.GATHER_INTEL
+    }
+    //DO RECURITMENT AND TRAINING WHILE WE RECOVER STAMINA.
+    else if ( stamina[0] < stamina[1] / 2 || bladeburnerState == eBladeburnerStates.DOWNTIME )
+    {
+      bladeburnerState = eBladeburnerStates.DOWNTIME
     }
     //CONTROL CHAOS (WE HEAL FIRST BECAUSE CHAOS NATURALLY DECREASES)
     else if ( bestCityChaos >= BLADEBURNER_MAX_ALLOWED_CHAOS || bladeburnerState == eBladeburnerStates.CHAOS_CONTROL )
@@ -405,7 +408,8 @@ export async function main(ns)
         await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.TRAIN ) / bonusTimeMult )
       }
 
-      if ( stamina[0] == stamina[1] )
+      //We have an issue where training uses stamina, so we can't use full stamina recovery as a metric for when to exit training.
+      if ( stamina[0] >= stamina[1] - 1 )
       {
         bladeburnerState = eBladeburnerStates.GATHER_INTEL
       }
