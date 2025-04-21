@@ -14,8 +14,8 @@ const BLADEBURNER_PAY_FOR_HOSPITAL_THRESHHOLD = 50000000
 
 const BLADEBURNER_RECRUIT_SUCCESS_THRESHOLD = 0.3666666
 
-//Every 15 minutes update intel.
-const BLADEBURNER_INTEL_INTERVAL = (1000 * 60) * 15
+//Every 20 minutes update intel.
+const BLADEBURNER_INTEL_INTERVAL = (1000 * 60) * 20
 const BLADEBURNER_INTEL_CYCLES_PER_CITY = 5
 
 const BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE = 0.8
@@ -281,9 +281,24 @@ export async function main(ns)
       }   
       else
       {
-        //If city is too chaotic, try to reduce chaos level.
-        ns.bladeburner.startAction( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.DIPLOMACY )
-        await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.DIPLOMACY ) / bonusTimeMult )
+
+        ns.bladeburner.setTeamSize( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STEALTH_KILL, ns.bladeburner.getTeamSize() )
+        const stealthKillChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STEALTH_KILL )
+
+        //If we can lauch an stealth retirement opperation, do so. This will lower chaos and population.
+        if ( stealthKillChance[0] >= BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE && stealthKillChance[1] == 1.0 &&
+        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STEALTH_KILL ) > 0 && 
+        ns.bladeburner.getCityEstimatedPopulation( currentCity ) >= BLADEBURNER_ACCEPTABLE_POP_LEVEL )
+        {
+          ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STEALTH_KILL )
+          await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STEALTH_KILL ) / bonusTimeMult )
+        }
+        else
+        {
+          //If city is too chaotic, try to reduce chaos level with diplomacy.
+          ns.bladeburner.startAction( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.DIPLOMACY )
+          await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.DIPLOMACY ) / bonusTimeMult )
+        }
       } 
     }
     else if ( bladeburnerState == eBladeburnerStates.POP_CONTROL )
@@ -296,7 +311,8 @@ export async function main(ns)
       const stingChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING )
 
       //If we can lauch a sting opperation, do so.
-      if ( stingChance[0] >= BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE && stingChance[1] == 1.0 )
+      if ( stingChance[0] >= BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE && stingChance[1] == 1.0 &&
+      ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING ) > 0  )
       {
         ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING )
         await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING ) / bonusTimeMult )
@@ -400,7 +416,8 @@ export async function main(ns)
             const investigationChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE )
 
             //If we can lauch an investigation opperation, do so.
-            if ( investigationChance[0] >= BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE && investigationChance[1] == 1.0 )
+            if ( investigationChance[0] >= BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE && investigationChance[1] == 1.0 &&
+            ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE ) > 0  )
             {
               ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE )
               await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE ) / bonusTimeMult )
