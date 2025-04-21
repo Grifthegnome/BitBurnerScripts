@@ -18,7 +18,7 @@ const BLADEBURNER_RECRUIT_SUCCESS_THRESHOLD = 0.3666666
 const BLADEBURNER_INTEL_INTERVAL = (1000 * 60) * 15
 const BLADEBURNER_INTEL_CYCLES_PER_CITY = 5
 
-const BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE = 0.9
+const BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE = 0.8
 
 /** @param {NS} ns */
 export async function main(ns) 
@@ -292,7 +292,16 @@ export async function main(ns)
       const bountyHuntChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE  )
       const retireChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL  )
 
-      if ( retireChance[1] > bountyHuntChance[1] &&
+      ns.bladeburner.setTeamSize( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING, ns.bladeburner.getTeamSize() )
+      const stingChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING )
+
+      //If we can lauch a sting opperation, do so.
+      if ( stingChance[0] >= BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE && stingChance[1] == 1.0 )
+      {
+        ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING )
+        await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING ) / bonusTimeMult )
+      }
+      else if ( retireChance[1] > bountyHuntChance[1] &&
       ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) > 0 )
       {
         ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL )
