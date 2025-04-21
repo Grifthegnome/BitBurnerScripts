@@ -18,6 +18,7 @@ const BLADEBURNER_RECRUIT_SUCCESS_THRESHOLD = 0.3666666
 const BLADEBURNER_INTEL_INTERVAL = (1000 * 60) * 20
 const BLADEBURNER_INTEL_CYCLES_PER_CITY = 5
 
+const BLADEBURNER_CONTRACT_MIN_ACCEPTABLE_SUCCESS_CHANCE = 0.5
 const BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE = 0.8
 
 /** @param {NS} ns */
@@ -317,28 +318,35 @@ export async function main(ns)
         ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING )
         await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING ) / bonusTimeMult )
       }
-      else if ( retireChance[1] > bountyHuntChance[1] &&
+      else if ( retireChance[1] > bountyHuntChance[1] && retireChance[0] >= BLADEBURNER_CONTRACT_MIN_ACCEPTABLE_SUCCESS_CHANCE &&
       ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) > 0 )
       {
         ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL )
         await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) / bonusTimeMult )
       }
-      else if ( retireChance[1] == bountyHuntChance[1] && retireChance[0] > bountyHuntChance[0] &&
+      else if ( retireChance[1] == bountyHuntChance[1] && retireChance[0] > bountyHuntChance[0] && retireChance[0] >= BLADEBURNER_CONTRACT_MIN_ACCEPTABLE_SUCCESS_CHANCE &&
       ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) > 0 )
       {
         ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL )
         await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) / bonusTimeMult )
       }
-      else if ( ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE  ) > 0 )
+      else if ( bountyHuntChance[0] >= BLADEBURNER_CONTRACT_MIN_ACCEPTABLE_SUCCESS_CHANCE && 
+      ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE  ) > 0 )
       {
         ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE )
         await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE ) / bonusTimeMult )
       }
-      else
+      else if ( 
+        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) == 0 &&
+        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE  ) == 0 )
       {
         //If we are totally out of contracts, we need to Incite Violence. This will increase chaos across all cities.
         ns.bladeburner.startAction(  eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.VIOLENCE )
         await ns.sleep( ns.bladeburner.getActionTime(  eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.VIOLENCE ) / bonusTimeMult )
+      }
+      else
+      {
+        bladeburnerState = eBladeburnerStates.DOWNTIME 
       }
 
       if ( ns.bladeburner.getCityEstimatedPopulation( currentCity ) <= BLADEBURNER_ACCEPTABLE_POP_LEVEL )
