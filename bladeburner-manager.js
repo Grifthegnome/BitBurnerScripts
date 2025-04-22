@@ -342,8 +342,19 @@ export async function main(ns)
       ns.bladeburner.setTeamSize( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING, ns.bladeburner.getTeamSize() )
       const stingChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING )
 
-      //If we can lauch a sting opperation, do so.
-      if ( stingChance[0] >= BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE && stingChance[1] == 1.0 &&
+      ns.bladeburner.setTeamSize( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.RAID, ns.bladeburner.getTeamSize() )
+      const raidChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.RAID )
+
+      //If we can launch a raid, do so.
+      if ( raidChance[0] >= BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE && raidChance[1] == 1.0 &&
+      ns.bladeburner.getCityCommunities( currentCity ) > 0 &&
+      ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.RAID ) > 0  )
+      {
+        ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.RAID )
+        await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.RAID ) / bonusTimeMult )
+      }
+      //If we can launch a sting opperation, do so.
+      else if ( stingChance[0] >= BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE && stingChance[1] == 1.0 &&
       ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING ) > 0  )
       {
         ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING )
@@ -413,6 +424,12 @@ export async function main(ns)
         if ( player.skills[ skills[skillIndex] ] < 100 )
         {
           if ( skills[skillIndex] == "hacking" )
+            continue
+          
+          if ( skills[skillIndex] == "charisma" )
+            continue
+
+          if ( skills[skillIndex] == "intelligence" )
             continue
 
           underSkilled = true
