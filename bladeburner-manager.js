@@ -5,10 +5,9 @@ import { GetReadableDateDelta } from "utility.js"
 const BLADEBURNER_LAST_INTEL_TIME_FILENAME = "bladeburner_intel_time.txt"
 const BLADEBURNER_LAST_CITY_POP_FILENAME = "bladeburner_last_city_pop.txt"
 const BLADEBURNER_CITY_POP_TREND_FILENAME = "bladeburner_city_pop_trend.txt"
+const BLADEBURNER_ACTION_SUCCESS_RATES_BY_CITY_FILENAME = "bladeburner_city_success_rates.txt"
 const BLADEBURNER_REPORT_FILENAME = "bladeburner_report.txt"
 
-const BLADEBURNER_MAX_ALLOWED_CHAOS = 1.0
-const BLADEBURNER_ACCEPTABLE_CHAOS_LEVEL = 0.5
 const BLADEBURNER_ACCEPTABLE_POP_LEVEL = 1000000000
 
 const BLADEBURNER_PAY_FOR_HOSPITAL_THRESHHOLD = 50000000
@@ -22,50 +21,52 @@ const BLADEBURNER_INTEL_CYCLES_PER_CITY = 5
 const BLADEBURNER_CONTRACT_MIN_ACCEPTABLE_SUCCESS_CHANCE = 0.5
 const BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE = 0.8
 
+const cityNames = [ "Aevum", "Chongqing", "Sector-12", "New Tokyo", "Ishima", "Volhaven" ]
+
+const eBladeburnerStates = Object.freeze({
+  DOWNTIME: 0,
+  CHAOS_CONTROL: 1,
+  POP_CONTROL:2,
+  GATHER_INTEL: 3,
+  HEAL: 4,
+} )
+
+const eBladeburnerActionTypes = Object.freeze({
+  GENERAL: "General",
+  CONTRACTS: "Contracts",
+  OPERATIONS: "Operations",
+  BLACKOPS: "Black Operations",
+})
+
+const eBladeburnerGeneralActions = Object.freeze({
+  TRAIN: "Training",
+  INTEL: "Field Analysis",
+  RECRUIT: "Recruitment",
+  DIPLOMACY: "Diplomacy",
+  HEAL: "Hyperbolic Regeneration Chamber",
+  VIOLENCE: "Incite Violence",
+})
+
+const eBladeburnerContractActions = Object.freeze({
+  TRACK: "Tracking",
+  CAPTURE: "Bounty Hunter",
+  KILL: "Retirement", 
+})
+
+const eBladeburnerOperationActions = Object.freeze({
+  INVESTIGATE: "Investigation",
+  UNDERCOVER: "Undercover Operation",
+  STING: "Sting Operation",                       //PERCENT REDUCTION
+  RAID: "Raid",                                   //PERCENT REDUCTION
+  STEALTH_KILL: "Stealth Retirement Operation",   //PERCENT REDUCTION
+  ASSASSINATION: "Assassination",                 //PERCENT REDUCTION
+})
+
 /** @param {NS} ns */
 export async function main(ns) 
 {
 
-  const cityNames = [ "Aevum", "Chongqing", "Sector-12", "New Tokyo", "Ishima", "Volhaven" ]
 
-  const eBladeburnerStates = Object.freeze({
-    DOWNTIME: 0,
-    CHAOS_CONTROL: 1,
-    POP_CONTROL:2,
-    GATHER_INTEL: 3,
-    HEAL: 4,
-  } )
-
-  const eBladeburnerActionTypes = Object.freeze({
-    GENERAL: "General",
-    CONTRACTS: "Contracts",
-    OPERATIONS: "Operations",
-    BLACKOPS: "Black Operations",
-  })
-
-  const eBladeburnerGeneralActions = Object.freeze({
-    TRAIN: "Training",
-    INTEL: "Field Analysis",
-    RECRUIT: "Recruitment",
-    DIPLOMACY: "Diplomacy",
-    HEAL: "Hyperbolic Regeneration Chamber",
-    VIOLENCE: "Incite Violence",
-  })
-
-  const eBladeburnerContractActions = Object.freeze({
-    TRACK: "Tracking",
-    CAPTURE: "Bounty Hunter",
-    KILL: "Retirement", 
-  })
-
-  const eBladeburnerOperationActions = Object.freeze({
-    INVESTIGATE: "Investigation",
-    UNDERCOVER: "Undercover Operation",
-    STING: "Sting Operation",                       //PERCENT REDUCTION
-    RAID: "Raid",                                   //PERCENT REDUCTION
-    STEALTH_KILL: "Stealth Retirement Operation",   //PERCENT REDUCTION
-    ASSASSINATION: "Assassination",                 //PERCENT REDUCTION
-  })
 
   //Only allow one gang manager to run at a time.
   KillDuplicateScriptsOnHost( ns, ns.getRunningScript() )
@@ -85,14 +86,12 @@ export async function main(ns)
 
   let intelGatherStartingCity          = ns.bladeburner.getCity()
 
-  const generalActionNames  = ns.bladeburner.getGeneralActionNames()
-  const contractNames       = ns.bladeburner.getContractNames()
-  const operationNames      = ns.bladeburner.getOperationNames()
-
   let bladeburnerState = eBladeburnerStates.GATHER_INTEL
 
   let lastIntelGatherTime = -1
   let intelCycleCount = 0
+
+  let targetChaosLevel = 0
 
   if ( ns.fileExists( BLADEBURNER_LAST_INTEL_TIME_FILENAME ) )
   {
@@ -130,11 +129,16 @@ export async function main(ns)
     popTrendByCity = JSON.parse( jsonStringRead )
   }
 
-   /*
-    TO DO:
-    Log best success rates we have for every action. per city.
-    When the success rates drop below this noted threshold, try reducing chaos, then try reducing population.
-   */ 
+  let actionSuccessRatesByCity = {}
+  if ( ns.fileExists( BLADEBURNER_ACTION_SUCCESS_RATES_BY_CITY_FILENAME ) )
+  {
+    const jsonStringRead = ns.read( BLADEBURNER_ACTION_SUCCESS_RATES_BY_CITY_FILENAME )
+    actionSuccessRatesByCity = JSON.parse( jsonStringRead )
+  }
+  else
+  {
+    actionSuccessRatesByCity = InitializeSuccessRatesByCityData( ns )
+  }
 
   while ( true )
   {
@@ -150,6 +154,8 @@ export async function main(ns)
     2. We can likely construct a cycle of health and stamina recovery where we do contracts and operations until stamina or health gets low, heal, then do 
     recruitment and intel management until stamina gets back to normal.
     */
+
+    const citiesNeedingChaosReduction = await CheckForCitiesNeedingChaosReduction( ns, actionSuccessRatesByCity )
 
     let currentCity = ns.bladeburner.getCity()
     let nextCityToScout = currentCity
@@ -188,6 +194,7 @@ export async function main(ns)
     
     await ns.write( BLADEBURNER_REPORT_FILENAME, "Time Since Last Intel: " + GetReadableDateDelta( timeSinceLastIntel ) + "\n", "a" )
     await ns.write( BLADEBURNER_REPORT_FILENAME, "\n", "a" )
+    
     
     for ( let i = 0; i < cityNames.length; i++ )
     {
@@ -232,7 +239,13 @@ export async function main(ns)
       }
 
       await ns.write( BLADEBURNER_REPORT_FILENAME, cityName + "\n", "a" )
-      await ns.write( BLADEBURNER_REPORT_FILENAME, "Chaos Level: " + cityChaos + "\n", "a" )
+
+      if ( citiesNeedingChaosReduction.includes( cityName ) )
+        await ns.write( BLADEBURNER_REPORT_FILENAME, "Chaos Level: " + cityChaos + " [NEEDS REDUCTION]\n", "a" )
+      else
+        await ns.write( BLADEBURNER_REPORT_FILENAME, "Chaos Level: " + cityChaos + "\n", "a" )
+
+      
       await ns.write( BLADEBURNER_REPORT_FILENAME, "Syth. Communities: " + cityCommunities + "\n", "a" )
       await ns.write( BLADEBURNER_REPORT_FILENAME, "Est. Population: " + AddCommasToNumber( cityEstPop ) + " " + popTrendByCity[ cityName ] + "\n", "a" )
       await ns.write( BLADEBURNER_REPORT_FILENAME, "\n", "a" )
@@ -262,11 +275,13 @@ export async function main(ns)
       bladeburnerState = eBladeburnerStates.DOWNTIME
     }
     //CONTROL CHAOS (WE HEAL FIRST BECAUSE CHAOS NATURALLY DECREASES)
-    else if ( bestCityChaos >= BLADEBURNER_MAX_ALLOWED_CHAOS || bladeburnerState == eBladeburnerStates.CHAOS_CONTROL )
+    else if ( citiesNeedingChaosReduction.includes( bestCity ) || bladeburnerState == eBladeburnerStates.CHAOS_CONTROL )
     {
       if ( bladeburnerState != eBladeburnerStates.CHAOS_CONTROL )
       {
         const travelSucessful = ns.bladeburner.switchCity( bestCity )
+
+        targetChaosLevel = bestCityChaos / 2
 
         if ( travelSucessful )
           currentCity = bestCity
@@ -292,7 +307,7 @@ export async function main(ns)
     
     if ( bladeburnerState == eBladeburnerStates.CHAOS_CONTROL)
     {
-      if ( ns.bladeburner.getCityChaos( currentCity ) <= BLADEBURNER_ACCEPTABLE_CHAOS_LEVEL )
+      if ( ns.bladeburner.getCityChaos( currentCity ) <= targetChaosLevel )
       {
         bladeburnerState = eBladeburnerStates.DOWNTIME
       }   
@@ -520,5 +535,87 @@ export async function main(ns)
 
     await ns.sleep( 1000 )
   }
+
+}
+
+function InitializeSuccessRatesByCityData( ns )
+{
+  let actionSuccessRatesByCity = {}
+
+  for ( let i = 0; i < cityNames.length; i++ )
+  {
+    const cityName = cityNames[i]
+
+    ns.bladeburner.switchCity( cityName )
+
+    //Store Contract Success
+    let contractSuccessRates = {}
+    contractSuccessRates[ eBladeburnerContractActions.TRACK ] = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK )
+    contractSuccessRates[ eBladeburnerContractActions.CAPTURE ] = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE )
+    contractSuccessRates[ eBladeburnerContractActions.KILL ] = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL )
+ 
+    let operationSuccessRates = {}
+    operationSuccessRates[eBladeburnerOperationActions.INVESTIGATE] = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE)
+    operationSuccessRates[eBladeburnerOperationActions.UNDERCOVER] = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.UNDERCOVER)
+    operationSuccessRates[eBladeburnerOperationActions.STING] = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING)
+    operationSuccessRates[eBladeburnerOperationActions.RAID] = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.RAID)
+    operationSuccessRates[eBladeburnerOperationActions.STEALTH_KILL] = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STEALTH_KILL)
+    operationSuccessRates[eBladeburnerOperationActions.ASSASSINATION] = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.ASSASSINATION)
+    
+    let successRatesByActionType = {}
+    successRatesByActionType[ eBladeburnerActionTypes.CONTRACTS ] = contractSuccessRates
+    successRatesByActionType[ eBladeburnerActionTypes.OPERATIONS ] = operationSuccessRates
+
+    actionSuccessRatesByCity[ cityName ] = successRatesByActionType
+  }
+
+  return actionSuccessRatesByCity
+
+}
+
+async function CheckForCitiesNeedingChaosReduction( ns, actionSuccessRatesByCity )
+{
+  let citiesNeedingChaosReduction = []
+
+  const actionTypesToCheck = [ eBladeburnerActionTypes.CONTRACTS, eBladeburnerActionTypes.OPERATIONS ]
+
+  for ( let i = 0; i < cityNames.length; i++ )
+  {
+    const cityName = cityNames[i]
+    ns.bladeburner.switchCity( cityName )
+
+    let cityNeedsChaosReduction = false
+    for ( let actionTypeIndex = 0; actionTypeIndex < actionTypesToCheck.length; actionTypeIndex++ )
+    {
+      const actionType = actionTypesToCheck[actionTypeIndex]
+      const actions = Object.keys( actionSuccessRatesByCity[ cityName ][ actionType ] )
+
+      for ( let actionIndex = 0; actionIndex < actions.length; actionIndex++ )
+      {
+        const action = actions[actionIndex]
+        const actionSuccessRate = ns.bladeburner.getActionEstimatedSuccessChance( actionType, action )
+
+        if ( actionSuccessRate[0] > actionSuccessRatesByCity[cityName][actionType][action][0] || 
+        actionSuccessRate[1] > actionSuccessRatesByCity[cityName][actionType][action][1] )
+        {
+          actionSuccessRatesByCity[cityName][actionType][action] = actionSuccessRate
+        }
+        else if( actionSuccessRate[0] < actionSuccessRatesByCity[cityName][actionType][action][0] || 
+        actionSuccessRate[1] < actionSuccessRatesByCity[cityName][actionType][action][1] )
+        {
+          cityNeedsChaosReduction = true
+        }
+      }
+    }
+
+    if ( cityNeedsChaosReduction )
+      citiesNeedingChaosReduction.push( cityName )
+
+  }
+
+  const jsonStringWrite = JSON.stringify( actionSuccessRatesByCity )
+  await ns.write( BLADEBURNER_ACTION_SUCCESS_RATES_BY_CITY_FILENAME, jsonStringWrite, "w" )
+
+  return citiesNeedingChaosReduction
 
 }

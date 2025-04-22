@@ -27,6 +27,9 @@ export async function main(ns)
   if ( ns.fileExists( "bladeburner_city_pop_trend.txt", "home" ) )
     ns.rm( "bladeburner_city_pop_trend.txt", "home" )
 
+  if ( ns.fileExists( "bladeburner_city_success_rates.txt", "home" ) )
+    ns.rm( "bladeburner_city_success_rates.txt", "home" )
+
   if ( ns.fileExists( "bladeburner_report.txt", "home" ) )
     ns.rm( "bladeburner_report.txt", "home" )
 
