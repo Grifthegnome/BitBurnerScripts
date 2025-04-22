@@ -1,5 +1,6 @@
 import { KillDuplicateScriptsOnHost } from "utility.js"
 import { AddCommasToNumber } from "utility.js"
+import { GetReadableDateDelta } from "utility.js"
 
 const BLADEBURNER_LAST_INTEL_TIME_FILENAME = "bladeburner_intel_time.txt"
 const BLADEBURNER_LAST_CITY_POP_FILENAME = "bladeburner_last_city_pop.txt"
@@ -92,7 +93,6 @@ export async function main(ns)
 
   let lastIntelGatherTime = -1
   let intelCycleCount = 0
-  const systemDate = new Date()
 
   if ( ns.fileExists( BLADEBURNER_LAST_INTEL_TIME_FILENAME ) )
   {
@@ -130,8 +130,16 @@ export async function main(ns)
     popTrendByCity = JSON.parse( jsonStringRead )
   }
 
+   /*
+    TO DO:
+    Log best success rates we have for every action. per city.
+    When the success rates drop below this noted threshold, try reducing chaos, then try reducing population.
+   */ 
+
   while ( true )
   {
+
+    const systemDate = new Date()
 
     //const cityName = ns.bladeburner.getCity()
     //ns.bladeburner.switchCity
@@ -174,6 +182,11 @@ export async function main(ns)
 
     await ns.write( BLADEBURNER_REPORT_FILENAME, "Player Health: " + player.hp.current + " / " + player.hp.max + "\n", "a" )
     await ns.write( BLADEBURNER_REPORT_FILENAME, "Player Stamina: " + stamina[0] + " / " + stamina[1] + "\n", "a" )
+    await ns.write( BLADEBURNER_REPORT_FILENAME, "\n", "a" )
+
+    const timeSinceLastIntel = systemDate.getTime() - lastIntelGatherTime
+    
+    await ns.write( BLADEBURNER_REPORT_FILENAME, "Time Since Last Intel: " + GetReadableDateDelta( timeSinceLastIntel ) + "\n", "a" )
     await ns.write( BLADEBURNER_REPORT_FILENAME, "\n", "a" )
     
     for ( let i = 0; i < cityNames.length; i++ )
@@ -233,7 +246,7 @@ export async function main(ns)
       bladeburnerState = eBladeburnerStates.HEAL
     }
     //GATHER INTEL AT REGULAR INTERVALS
-    else if ( systemDate.getTime() - lastIntelGatherTime >= BLADEBURNER_INTEL_INTERVAL || lastIntelGatherTime < 0 )
+    else if ( timeSinceLastIntel >= BLADEBURNER_INTEL_INTERVAL || lastIntelGatherTime < 0 )
     {
       if ( bladeburnerState != eBladeburnerStates.GATHER_INTEL )
       {
