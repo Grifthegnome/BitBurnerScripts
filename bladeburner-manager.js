@@ -542,6 +542,8 @@ function InitializeSuccessRatesByCityData( ns )
 {
   let actionSuccessRatesByCity = {}
 
+  const currentCity = ns.bladeburner.getCity()
+
   for ( let i = 0; i < cityNames.length; i++ )
   {
     const cityName = cityNames[i]
@@ -569,8 +571,9 @@ function InitializeSuccessRatesByCityData( ns )
     actionSuccessRatesByCity[ cityName ] = successRatesByActionType
   }
 
-  return actionSuccessRatesByCity
+  ns.bladeburner.switchCity( currentCity )
 
+  return actionSuccessRatesByCity
 }
 
 async function CheckForCitiesNeedingChaosReduction( ns, actionSuccessRatesByCity )
@@ -578,6 +581,8 @@ async function CheckForCitiesNeedingChaosReduction( ns, actionSuccessRatesByCity
   let citiesNeedingChaosReduction = []
 
   const actionTypesToCheck = [ eBladeburnerActionTypes.CONTRACTS, eBladeburnerActionTypes.OPERATIONS ]
+
+  const currentCity = ns.bladeburner.getCity()
 
   for ( let i = 0; i < cityNames.length; i++ )
   {
@@ -615,6 +620,8 @@ async function CheckForCitiesNeedingChaosReduction( ns, actionSuccessRatesByCity
 
   const jsonStringWrite = JSON.stringify( actionSuccessRatesByCity )
   await ns.write( BLADEBURNER_ACTION_SUCCESS_RATES_BY_CITY_FILENAME, jsonStringWrite, "w" )
+
+  ns.bladeburner.switchCity( currentCity )
 
   return citiesNeedingChaosReduction
 
