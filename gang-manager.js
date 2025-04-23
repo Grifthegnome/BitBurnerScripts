@@ -677,7 +677,7 @@ function DetermineGangPriority( idealPriority, wantedLevelGainRate, wantedLevelG
 
     If our wanted penalty is not changing, we need to do some crime to get the pentalty unfrozen.
     */
-    if ( ((wantedLevelGainRate < 0 || wantedLevelGainRateTrend < 0) && (1 - wantedPenalty) <= GANG_MAX_WANTED_PENALTY && !isNewGang ) || !isStuck )
+    if ( ((wantedLevelGainRate < 0 || wantedLevelGainRateTrend < 0) && (1 - wantedPenalty) <= GANG_MAX_WANTED_PENALTY && !isNewGang ) || isStuck )
     {
       if ( hasMaxMembers )
       {
