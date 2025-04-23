@@ -66,13 +66,24 @@ const eBladeburnerOperationActions = Object.freeze({
   ASSASSINATION: "Assassination",                 //PERCENT REDUCTION
 })
 
-const eBladeburnerSkillCategoryPriority = Object.freeze({
+//If we are dealing with large uncontrolled synth populations, configure for combating and controling population.
+const eBladeburnerSkillCategoryPriorityForControl = Object.freeze({
   ACTION_SUCCESS: ["Blade's Intuition", "Cloak", "Short-Circuit","Tracer","Digital Observer", "Reaper", "Evasive System" ],
   ACTION_SPEED:   ["Overclock"],
   INTEL_GAIN:     ["Datamancer"],
   EXP_GAIN:       ["Hyperdrive"],
   MONEY_GAIN:     ["Hands of Midas"],
   STAMINA:        ["Cyber's Edge"],
+})
+
+//If we don't have to worry about any large synth populations, configure for bounty farming effectiveness.
+const eBladeburnerSkillCategoryPriorityForFarming = Object.freeze({
+  MONEY_GAIN:     ["Hands of Midas"],
+  ACTION_SPEED:   ["Overclock"],
+  EXP_GAIN:       ["Hyperdrive"],
+  STAMINA:        ["Cyber's Edge"],
+  INTEL_GAIN:     ["Datamancer"],
+  ACTION_SUCCESS: ["Blade's Intuition", "Cloak", "Short-Circuit","Tracer","Digital Observer", "Reaper", "Evasive System" ],  
 })
 
 /** @param {NS} ns */
@@ -164,8 +175,6 @@ export async function main(ns)
     2. We can likely construct a cycle of health and stamina recovery where we do contracts and operations until stamina or health gets low, heal, then do 
     recruitment and intel management until stamina gets back to normal.
     */
-
-    PurchaseSkills( ns )
 
     const citiesNeedingChaosReduction = await CheckForCitiesNeedingChaosReduction( ns, actionSuccessRatesByCity )
 
@@ -265,6 +274,12 @@ export async function main(ns)
     }
 
     await ns.write( BLADEBURNER_REPORT_FILENAME, "=================================================" + "\n", "a" )
+
+    //Configure our skill purchase priority based on whether or not synth populations are controlled.
+    if ( largestPopulation >= BLADEBURNER_AGGRESSIVE_CONTROL_POP_LEVEL )
+      PurchaseSkills( ns, eBladeburnerSkillCategoryPriorityForControl )
+    else
+      PurchaseSkills( ns, eBladeburnerSkillCategoryPriorityForFarming )
 
     const nextBlackOP = ns.bladeburner.getNextBlackOp()
     const blackOPChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.BLACKOPS, nextBlackOP.name )
@@ -728,15 +743,15 @@ async function CheckForCitiesNeedingChaosReduction( ns, actionSuccessRatesByCity
 
 }
 
-function PurchaseSkills( ns )
+function PurchaseSkills( ns, priorityConfiguration )
 {
   let skillPointCount = ns.bladeburner.getSkillPoints()
-  const skillCategories = Object.keys( eBladeburnerSkillCategoryPriority )
+  const skillCategories = Object.keys( priorityConfiguration )
 
   for ( let skillCategoryIndex = 0; skillCategoryIndex < skillCategories.length; skillCategoryIndex++ )
   {
     const skillCategory = skillCategories[skillCategoryIndex]
-    const skillNames = eBladeburnerSkillCategoryPriority[skillCategory]
+    const skillNames = priorityConfiguration[skillCategory]
     for ( let skillIndex = 0; skillIndex < skillNames.length; skillIndex++ )
     {
       const skillName = skillNames[skillIndex]      
