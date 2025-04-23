@@ -742,7 +742,7 @@ function PurchaseSkills( ns )
       const skillName = skillNames[skillIndex]      
       const skillCost = ns.bladeburner.getSkillUpgradeCost( skillName, 1 )
 
-      if ( skillCost >= skillPointCount )
+      if ( skillCost <= skillPointCount )
       {
         ns.bladeburner.upgradeSkill( skillName, 1 )
         skillPointCount -= skillCost
