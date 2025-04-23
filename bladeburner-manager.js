@@ -20,6 +20,7 @@ const BLADEBURNER_INTEL_CYCLES_PER_CITY = 5
 
 const BLADEBURNER_CONTRACT_MIN_ACCEPTABLE_SUCCESS_CHANCE = 0.5
 const BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE = 0.8
+const BLADEBURNER_BLACKOPS_MIN_ACCEPTABLE_SUCCESS_CHANCE = 1.0
 
 const cityNames = [ "Aevum", "Chongqing", "Sector-12", "New Tokyo", "Ishima", "Volhaven" ]
 
@@ -29,6 +30,7 @@ const eBladeburnerStates = Object.freeze({
   POP_CONTROL:2,
   GATHER_INTEL: 3,
   HEAL: 4,
+  BLACKOPS: 5,
 } )
 
 const eBladeburnerActionTypes = Object.freeze({
@@ -162,6 +164,7 @@ export async function main(ns)
 
     let stamina = ns.bladeburner.getStamina()
     let player  = ns.getPlayer()
+    let bbRank  = ns.bladeburner.getRank()
 
     let bestCityChaos = -1
     let bestCityPop = -1
@@ -253,6 +256,9 @@ export async function main(ns)
 
     await ns.write( BLADEBURNER_REPORT_FILENAME, "=================================================" + "\n", "a" )
 
+    const nextBlackOP = ns.bladeburner.getNextBlackOp()
+    const blackOPChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.BLACKOPS, nextBlackOP.name )
+
     //HEAL TO FULL HEALTH IF WE ARE BELOW HALF HEALTH
     if ( player.hp.current <= player.hp.max / 2 || bladeburnerState == eBladeburnerStates.HEAL )
     {
@@ -289,6 +295,13 @@ export async function main(ns)
 
       //Travel to high chaos city to control chaos.
       bladeburnerState = eBladeburnerStates.CHAOS_CONTROL
+    }
+    //PERFORM BLACKOPS
+    else if ( bbRank >= nextBlackOP.rank && blackOPChance[0] == BLADEBURNER_BLACKOPS_MIN_ACCEPTABLE_SUCCESS_CHANCE &&
+    blackOPChance[1] == BLADEBURNER_BLACKOPS_MIN_ACCEPTABLE_SUCCESS_CHANCE )
+    {
+      //To Do: Check all cities to see if any have a 100% success rate for this blackop.
+      bladeburnerState = eBladeburnerStates.BLACKOPS
     }
     //KILL SYNTHETICS
     else if ( bestCityPop >= BLADEBURNER_ACCEPTABLE_POP_LEVEL )
@@ -332,6 +345,12 @@ export async function main(ns)
           await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.DIPLOMACY ) / bonusTimeMult )
         }
       } 
+    }
+    else if ( bladeburnerState == eBladeburnerStates.BLACKOPS )
+    {
+      //We have already done the checks to make sure we'll succeed.
+      ns.bladeburner.startAction( eBladeburnerActionTypes.BLACKOPS, nextBlackOP.name )
+      await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.BLACKOPS, nextBlackOP.name ) / bonusTimeMult )
     }
     else if ( bladeburnerState == eBladeburnerStates.POP_CONTROL )
     {
