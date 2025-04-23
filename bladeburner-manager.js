@@ -66,12 +66,18 @@ const eBladeburnerOperationActions = Object.freeze({
   ASSASSINATION: "Assassination",                 //PERCENT REDUCTION
 })
 
+const eBladeburnerSkillCategoryPriority = Object.freeze({
+  ACTION_SUCCESS: ["Blade's Intuition", "Cloak", "Short-Circuit","Tracer","Digital Observer", "Reaper", "Evasive System" ],
+  ACTION_SPEED:   ["Overclock"],
+  INTEL_GAIN:     ["Datamancer"],
+  EXP_GAIN:       ["Hyperdrive"],
+  MONEY_GAIN:     ["Hands of Midas"],
+  STAMINA:        ["Cyber's Edge"],
+})
+
 /** @param {NS} ns */
 export async function main(ns) 
 {
-
-
-
   //Only allow one gang manager to run at a time.
   KillDuplicateScriptsOnHost( ns, ns.getRunningScript() )
 
@@ -142,7 +148,7 @@ export async function main(ns)
   else
   {
     actionSuccessRatesByCity = InitializeSuccessRatesByCityData( ns )
-  }
+  } 
 
   while ( true )
   {
@@ -158,6 +164,8 @@ export async function main(ns)
     2. We can likely construct a cycle of health and stamina recovery where we do contracts and operations until stamina or health gets low, heal, then do 
     recruitment and intel management until stamina gets back to normal.
     */
+
+    PurchaseSkills( ns )
 
     const citiesNeedingChaosReduction = await CheckForCitiesNeedingChaosReduction( ns, actionSuccessRatesByCity )
 
@@ -718,4 +726,27 @@ async function CheckForCitiesNeedingChaosReduction( ns, actionSuccessRatesByCity
 
   return citiesNeedingChaosReduction
 
+}
+
+function PurchaseSkills( ns )
+{
+  let skillPointCount = ns.bladeburner.getSkillPoints()
+  const skillCategories = Object.keys( eBladeburnerSkillCategoryPriority )
+
+  for ( let skillCategoryIndex = 0; skillCategoryIndex < skillCategories.length; skillCategoryIndex++ )
+  {
+    const skillCategory = skillCategories[skillCategoryIndex]
+    const skillNames = eBladeburnerSkillCategoryPriority[skillCategory]
+    for ( let skillIndex = 0; skillIndex < skillNames.length; skillIndex++ )
+    {
+      const skillName = skillNames[skillIndex]      
+      const skillCost = ns.bladeburner.getSkillUpgradeCost( skillName, 1 )
+
+      if ( skillCost >= skillPointCount )
+      {
+        ns.bladeburner.upgradeSkill( skillName, 1 )
+        skillPointCount -= skillCost
+      }
+    }
+  }
 }
