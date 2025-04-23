@@ -19,6 +19,7 @@ const BLADEBURNER_RECRUIT_SUCCESS_THRESHOLD = 0.3666666
 const BLADEBURNER_INTEL_INTERVAL = (1000 * 60) * 20
 const BLADEBURNER_INTEL_CYCLES_PER_CITY = 5
 
+const BLADEBURNER_INTEL_MIN_ACCEPTABLE_SUCCESS_CHANCE = 1.0
 const BLADEBURNER_CONTRACT_MIN_ACCEPTABLE_SUCCESS_CHANCE = 0.5
 const BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE = 0.8
 const BLADEBURNER_BLACKOPS_MIN_ACCEPTABLE_SUCCESS_CHANCE = 1.0
@@ -541,40 +542,30 @@ export async function main(ns)
           //Some intel actions impact world wide intel, but most don't.
           let worldWideIntel = false
 
-          //Only run contracts and opperations on first intel cycle.
-          if ( intelCycleCount == 0 )
+
+          const trackChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK )
+
+          ns.bladeburner.setTeamSize( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE, ns.bladeburner.getTeamSize() )
+          const investigationChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE )
+
+          ns.bladeburner.setTeamSize( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.UNDERCOVER, ns.bladeburner.getTeamSize() )
+          const undercoverChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.UNDERCOVER )
+
+          //If we can lauch an undercover opperation, do so.
+          if ( undercoverChance[0] >= BLADEBURNER_INTEL_MIN_ACCEPTABLE_SUCCESS_CHANCE && investigationChance[1] == 1.0 &&
+          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.UNDERCOVER ) > 0  )
           {
-            const trackChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK )
-
-            ns.bladeburner.setTeamSize( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE, ns.bladeburner.getTeamSize() )
-            const investigationChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE )
-
-            ns.bladeburner.setTeamSize( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.UNDERCOVER, ns.bladeburner.getTeamSize() )
-            const undercoverChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.UNDERCOVER )
-
-            //If we can lauch an undercover opperation, do so.
-            if ( undercoverChance[0] >= BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE && investigationChance[1] == 1.0 &&
-            ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.UNDERCOVER ) > 0  )
-            {
-              ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.UNDERCOVER )
-              await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.UNDERCOVER ) / bonusTimeMult )
-              worldWideIntel = true
-            }
-            //If we can lauch an investigation opperation, do so.
-            else if ( investigationChance[0] >= BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE && investigationChance[1] == 1.0 &&
-            ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE ) > 0  )
-            {
-              ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE )
-              await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE ) / bonusTimeMult )
-              worldWideIntel = true
-            }
-            //Otherwise do a tact contract.
-            else if ( trackChance[0] >= 0.5 && 
-            ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK ) > 0 )
-            {
-              ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK )
-              await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK ) / bonusTimeMult )
-            }
+            ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.UNDERCOVER )
+            await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.UNDERCOVER ) / bonusTimeMult )
+            worldWideIntel = true
+          }
+          //If we can lauch an investigation opperation, do so.
+          else if ( investigationChance[0] >= BLADEBURNER_INTEL_MIN_ACCEPTABLE_SUCCESS_CHANCE && investigationChance[1] == 1.0 &&
+          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE ) > 0  )
+          {
+            ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE )
+            await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE ) / bonusTimeMult )
+            worldWideIntel = true
           }
           //Otherwise, gather field inteligence.
           else
@@ -582,6 +573,20 @@ export async function main(ns)
             ns.bladeburner.startAction(  eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.INTEL )
             await ns.sleep( ns.bladeburner.getActionTime(  eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.INTEL ) / bonusTimeMult )
           }
+
+
+          //Otherwise do a track contract.
+          //To Do: Track contracts don't seem to improve our data, but they give good early game experience, we need to figure out where to run this.
+          /*
+          if ( trackChance[0] >= 0.5 && 
+          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK ) > 0 )
+          {
+            ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK )
+            await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK ) / bonusTimeMult )
+          }
+          */
+          
+          
 
           for ( let cityIndex = 0; cityIndex < cityNames.length; cityIndex++ )
           {
