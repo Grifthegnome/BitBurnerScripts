@@ -357,7 +357,7 @@ export async function main(ns)
 
         //If we can lauch an stealth retirement opperation, do so. This will lower chaos and population.
         if ( stealthKillChance[0] >= BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE && stealthKillChance[1] == 1.0 &&
-        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STEALTH_KILL ) > 0 && 
+        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STEALTH_KILL ) >= 1 && 
         ns.bladeburner.getCityEstimatedPopulation( currentCity ) >= BLADEBURNER_ACCEPTABLE_POP_LEVEL )
         {
           ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STEALTH_KILL )
@@ -381,6 +381,7 @@ export async function main(ns)
     {
 
       const bountyHuntChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE  )
+
       const retireChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL  )
 
       ns.bladeburner.setTeamSize( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING, ns.bladeburner.getTeamSize() )
@@ -394,39 +395,39 @@ export async function main(ns)
         //If we can launch a raid, do so.
         if ( raidChance[0] >= BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE && raidChance[1] == 1.0 &&
         ns.bladeburner.getCityCommunities( currentCity ) > 0 &&
-        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.RAID ) > 0  )
+        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.RAID ) >= 1  )
         {
           ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.RAID )
           await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.RAID ) / bonusTimeMult )
         }
         //If we can launch a sting opperation, do so.
         else if ( stingChance[0] >= BLADEBURNER_OPERATION_MIN_ACCEPTABLE_SUCCESS_CHANCE && stingChance[1] == 1.0 &&
-        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING ) > 0  )
+        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING ) >= 1  )
         {
           ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING )
           await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.STING ) / bonusTimeMult )
         }
         else if ( retireChance[1] > bountyHuntChance[1] && retireChance[0] >= BLADEBURNER_CONTRACT_MIN_ACCEPTABLE_SUCCESS_CHANCE &&
-        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) > 0 )
+        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) >= 1 )
         {
           ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL )
           await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) / bonusTimeMult )
         }
         else if ( retireChance[1] == bountyHuntChance[1] && retireChance[0] > bountyHuntChance[0] && retireChance[0] >= BLADEBURNER_CONTRACT_MIN_ACCEPTABLE_SUCCESS_CHANCE &&
-        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) > 0 )
+        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) >= 1 )
         {
           ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL )
           await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) / bonusTimeMult )
         }
         else if ( bountyHuntChance[0] >= BLADEBURNER_CONTRACT_MIN_ACCEPTABLE_SUCCESS_CHANCE && 
-        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE  ) > 0 )
+        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE  ) >= 1 )
         {
           ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE )
           await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE ) / bonusTimeMult )
         }
         else if ( 
-          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) == 0 &&
-          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE  ) == 0 )
+          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) < 1 &&
+          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE  ) < 1 )
         {
           //If we are totally out of contracts, we need to Incite Violence. This will increase chaos across all cities.
           ns.bladeburner.startAction(  eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.VIOLENCE )
@@ -439,27 +440,28 @@ export async function main(ns)
       }
       else
       {
-        if ( retireChance[1] > bountyHuntChance[1] && retireChance[0] >= BLADEBURNER_CONTRACT_MIN_ACCEPTABLE_SUCCESS_CHANCE &&
-        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) > 0 )
-        {
-          ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL )
-          await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) / bonusTimeMult )
-        }
-        else if ( retireChance[1] == bountyHuntChance[1] && retireChance[0] > bountyHuntChance[0] && bountyHuntChance[0] >= BLADEBURNER_CONTRACT_MIN_ACCEPTABLE_SUCCESS_CHANCE &&
-        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE ) > 0 )
+        
+        if ( retireChance[1] == bountyHuntChance[1] && retireChance[0] > bountyHuntChance[0] && bountyHuntChance[0] >= BLADEBURNER_CONTRACT_MIN_ACCEPTABLE_SUCCESS_CHANCE &&
+        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE ) >= 1 )
         {
           ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL )
           await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) / bonusTimeMult )
         }
         else if ( bountyHuntChance[0] >= BLADEBURNER_CONTRACT_MIN_ACCEPTABLE_SUCCESS_CHANCE && 
-        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE  ) > 0 )
+        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE  ) >= 1 )
         {
           ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE )
           await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE ) / bonusTimeMult )
         }
+        else if ( retireChance[0] >= BLADEBURNER_CONTRACT_MIN_ACCEPTABLE_SUCCESS_CHANCE &&
+        ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) >= 1 )
+        {
+          ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL )
+          await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) / bonusTimeMult )
+        }
         else if ( 
-          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) == 0 &&
-          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE  ) == 0 )
+          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.KILL ) < 1 &&
+          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.CAPTURE  ) < 1 )
         {
           //If we are totally out of contracts, we need to Incite Violence. This will increase chaos across all cities.
           ns.bladeburner.startAction(  eBladeburnerActionTypes.GENERAL, eBladeburnerGeneralActions.VIOLENCE )
@@ -576,7 +578,7 @@ export async function main(ns)
 
           //If we can lauch an undercover opperation, do so.
           if ( undercoverChance[0] >= BLADEBURNER_INTEL_MIN_ACCEPTABLE_SUCCESS_CHANCE && investigationChance[1] == 1.0 &&
-          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.UNDERCOVER ) > 0  )
+          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.UNDERCOVER ) >= 1  )
           {
             ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.UNDERCOVER )
             await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.UNDERCOVER ) / bonusTimeMult )
@@ -584,7 +586,7 @@ export async function main(ns)
           }
           //If we can lauch an investigation opperation, do so.
           else if ( investigationChance[0] >= BLADEBURNER_INTEL_MIN_ACCEPTABLE_SUCCESS_CHANCE && investigationChance[1] == 1.0 &&
-          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE ) > 0  )
+          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE ) >= 1  )
           {
             ns.bladeburner.startAction( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE )
             await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.OPERATIONS, eBladeburnerOperationActions.INVESTIGATE ) / bonusTimeMult )
@@ -602,7 +604,7 @@ export async function main(ns)
           //To Do: Track contracts don't seem to improve our data, but they give good early game experience, we need to figure out where to run this.
           /*
           if ( trackChance[0] >= 0.5 && 
-          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK ) > 0 )
+          ns.bladeburner.getActionCountRemaining( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK ) >= 1 )
           {
             ns.bladeburner.startAction( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK )
             await ns.sleep( ns.bladeburner.getActionTime( eBladeburnerActionTypes.CONTRACTS, eBladeburnerContractActions.TRACK ) / bonusTimeMult )
