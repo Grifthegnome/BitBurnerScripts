@@ -282,7 +282,10 @@ export async function main(ns)
       PurchaseSkills( ns, eBladeburnerSkillCategoryPriorityForFarming )
 
     const nextBlackOP = ns.bladeburner.getNextBlackOp()
-    const blackOPChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.BLACKOPS, nextBlackOP.name )
+    let blackOPChance = 0.0
+    
+    if ( nextBlackOP != null )
+      blackOPChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.BLACKOPS, nextBlackOP.name )    
 
     //HEAL TO FULL HEALTH IF WE ARE BELOW HALF HEALTH
     if ( player.hp.current <= player.hp.max / 2 || bladeburnerState == eBladeburnerStates.HEAL )
