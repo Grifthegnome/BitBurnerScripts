@@ -282,7 +282,7 @@ export async function main(ns)
       PurchaseSkills( ns, eBladeburnerSkillCategoryPriorityForFarming )
 
     const nextBlackOP = ns.bladeburner.getNextBlackOp()
-    let blackOPChance = 0.0
+    let blackOPChance = [0.0, 0.0]
     
     if ( nextBlackOP != null )
       blackOPChance = ns.bladeburner.getActionEstimatedSuccessChance( eBladeburnerActionTypes.BLACKOPS, nextBlackOP.name )    
@@ -325,7 +325,7 @@ export async function main(ns)
       bladeburnerState = eBladeburnerStates.CHAOS_CONTROL
     }
     //PERFORM BLACKOPS
-    else if ( bbRank >= nextBlackOP.rank && blackOPChance[0] == BLADEBURNER_BLACKOPS_MIN_ACCEPTABLE_SUCCESS_CHANCE &&
+    else if ( blackOPChance[0] == BLADEBURNER_BLACKOPS_MIN_ACCEPTABLE_SUCCESS_CHANCE &&  bbRank >= nextBlackOP.rank &&
     blackOPChance[1] == BLADEBURNER_BLACKOPS_MIN_ACCEPTABLE_SUCCESS_CHANCE )
     {
       //To Do: Check all cities to see if any have a 100% success rate for this blackop.
