@@ -57,19 +57,29 @@ async function UpgradeServers( ns )
     let purchasedServers = ns.getPurchasedServers();
 
     let serversAtCapacity = true
-    for ( let i = 0; i < purchasedServers.length; i++ )
+
+    if ( ns.fileExists( "unused_thread_report.txt", "home" ) )
     {
-      const server = purchasedServers[ i ]
-
-      if ( IsServerLocked( ns, server ) )
-        continue
-
-      const serverInfo = ns.getServer( server )
-      //If our current ram usage is less than 80%, we don't need to upgrade this server.
-      if ( serverInfo.ramUsed < serverInfo.maxRam * 0.8 )
+      const jsonStringRead = ns.read( "unused_thread_report.txt" )
+      let unusedThreadCount = JSON.parse( jsonStringRead )
+      serversAtCapacity = unusedThreadCount == 0
+    }
+    else
+    {
+      for ( let i = 0; i < purchasedServers.length; i++ )
       {
-        serversAtCapacity = false
-        break
+        const server = purchasedServers[ i ]
+
+        if ( IsServerLocked( ns, server ) )
+          continue
+
+        const serverInfo = ns.getServer( server )
+        //If our current ram usage is less than 80%, we don't need to upgrade this server.
+        if ( serverInfo.ramUsed < serverInfo.maxRam * 0.8 )
+        {
+          serversAtCapacity = false
+          break
+        }
       }
     }
 
